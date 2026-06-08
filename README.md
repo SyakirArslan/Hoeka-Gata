@@ -14,9 +14,6 @@ Repository ini berisi source TradingView Pine Script, hasil konversi indikator M
 ## Struktur Folder
 
 ```text
-Backup/
-  Backup manual sebelum perubahan besar.
-
 ConversionNotes/
   Catatan mapping logic dari Pine Script ke MQL5.
 
@@ -62,12 +59,12 @@ Source/
 
 ## Status Compile Terakhir
 
-Log compile yang tersimpan di repository menunjukkan:
+Compile terakhir yang dicek:
 
 - `HoekaGataIndicator.mq5`: `0 errors, 0 warnings`
 - `HoekaGataAlgo.mq5`: `0 errors, 0 warnings`
 
-File `.ex5` juga tersedia di folder masing-masing, tetapi source `.mq5` dan `.mqh` tetap menjadi acuan utama.
+File `.ex5` tersedia di folder masing-masing untuk kebutuhan install/tester MT5, tetapi source `.mq5` dan `.mqh` tetap menjadi acuan utama.
 
 ## Catatan Penting
 

@@ -1,0 +1,5 @@
+# MT5 compile logs are generated locally by MetaEditor.
+*.log
+
+# Manual backups should stay local; Git history is the source backup.
+Backup/
