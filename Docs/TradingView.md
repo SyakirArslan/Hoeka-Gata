@@ -48,7 +48,7 @@ Source/HoekaGata_Wave3Pro.pine
 | `0.500` dan `0.618` | Zona validasi Wave 2. |
 | `1.618` | Area entry Wave 3. |
 | `-0.270` | Area SL. |
-| `0.619` | TP Wave 4 di TradingView. |
+| `0.618` | TP Wave 4 di TradingView. |
 | `0.786` | Extend TP Wave 4. |
 
 ## Alert

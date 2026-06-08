@@ -4,53 +4,55 @@ indicator("HoekaGata Wave3 Pro", overlay=true, max_labels_count=500, max_lines_c
 // =====================================================
 // INPUT
 // =====================================================
-pivotLen              = input.int(8, "Pivot Min", minval=2, maxval=50)
-maxSwingBars          = input.int(100, "Pivot Max", minval=2, maxval=500)
+pivotLen              = input.int(8, "Pivot Min", minval=2, maxval=50, group="Config / Rules")
+maxSwingBars          = input.int(100, "Pivot Max", minval=2, maxval=500, group="Config / Rules")
 rawPivotLen           = 2
-displayMode           = input.string("Latest only", "Display Mode", options=["Latest only", "History"])
 
-showEarlyWave3Entry   = input.bool(true, "Show Wave 3")
+wave2FibTolerance     = input.float(0.05, "Wave 2 Fibo Tol", minval=0.0, maxval=0.2, step=0.001, group="Config / Rules")
+useEntryFibBarrier    = input.bool(false, "Entry Barrier", group="Config / Rules")
+entryTriggerFibLevel  = input.float(1.272, "Trigger Fibo", minval=1.0, maxval=1.618, step=0.001, group="Config / Rules")
+useParallelSlopeRule  = input.bool(true, "Slope Rule", group="Config / Rules")
+parallelTolerance     = input.float(0.15, "Slope Tol", minval=0.0, maxval=2.0, step=0.01, group="Config / Rules")
+minBarsBetweenEntry   = input.int(30, "Entry Gap (Candle)", minval=1, group="Config / Rules")
+
+enableBuyAlerts       = input.bool(true, "BUY Alert", group="Alerts")
+enableSellAlerts      = input.bool(true, "SELL Alert", group="Alerts")
+
+showEarlyWave3Entry   = true
 useAggressiveWave3    = showEarlyWave3Entry
-showWaveLines         = input.bool(true, "Show Wave Lines")
-showFibLines          = input.bool(true, "Show Fibo Lines")
-showTrendLines        = input.bool(true, "Show Trendline 0-2 and 1-3")
-drawingLineWidth      = input.int(1, "Line Width", minval=1, maxval=5)
-drawingLabelSizeInput = input.string("Tiny", "Label Size", options=["Tiny", "Small", "Normal"])
-enableWave3Alerts     = input.bool(true, "Enable Wave 3 Formed Alerts")
-enableBuyAlerts       = input.bool(true, "Enable BUY Alerts")
-enableSellAlerts      = input.bool(true, "Enable SELL Alerts")
-useParallelSlopeRule  = input.bool(true, "Use Parallel Slope Rule")
-parallelTolerance     = input.float(0.15, "Parallel Slope Tolerance", minval=0.0, maxval=2.0, step=0.01)
+showWaveLines         = input.bool(true, "Waves Line", group="Display")
+showTrendLines        = input.bool(true, "Trendline", group="Display")
+showFibLines          = input.bool(true, "Fibo Line", group="Display")
+showEntryFib1618      = input.bool(true, "1.618 Line", group="Display")
+
+displayMode           = input.string("Latest only", "Mode", options=["Latest only", "History"], group="General")
+maxObjects            = input.int(300, "Max Objects", minval=50, maxval=500, group="General")
+drawingLineWidth      = input.int(1, "Width", minval=1, maxval=5, group="General")
+drawingLabelSizeInput = input.string("Tiny", "Label", options=["Tiny", "Small", "Normal"], group="General")
+showProbabilityPanel  = input.bool(true, "HoekaGata Panel", group="General")
 
 wave2FibLevel         = 0.618
 wave2FibLevel2        = 0.500
-wave2FibTolerance     = input.float(0.05, "Wave 2 Fibo Tolerance", minval=0.0, maxval=0.2, step=0.001)
 
 entryFibLevel         = 1.618
 entryFibNegLevel      = -0.270
 
-wave4FibLevel         = 0.619
+wave4FibLevel         = 0.618
 wave4FibLevel2        = 0.786
 
-minBarsBetweenEntry   = input.int(30, "Min Bars Between Entry", minval=1)
-maxObjects            = input.int(300, "Max Drawing Objects", minval=50, maxval=500)
-showProbabilityPanel  = input.bool(true, "Show Probability Panel")
 
 // =====================================================
 // COLORS
 // =====================================================
-downColor             = input.color(color.red, "Downtrend Wave Color")
-upColor               = input.color(color.lime, "Uptrend Wave Color")
-entryBuyColor         = input.color(color.aqua, "Wave 3 BUY Entry Color")
-entrySellColor        = input.color(color.orange, "Wave 3 SELL Entry Color")
-normalLabelColor      = input.color(color.gray, "Normal Wave Label Color")
-fib618Color           = input.color(color.yellow, "Wave 2 Fib 0.618 Color")
-fib50Color            = input.color(color.teal, "Wave 2 Fib 0.5 Color")
-fib1618Color          = input.color(color.fuchsia, "Entry Fib 1.618 Color")
-fibNeg027Color        = input.color(color.blue, "Wave 3 Fib -0.27 Color")
-fib4Color             = input.color(color.purple, "Wave 4 Fib 0.619 Color")
-trendLineColor        = input.color(color.white, "Trendline Color")
-textColor             = input.color(color.white, "Text Color")
+downColor             = input.color(color.red, "Down Wave")
+upColor               = input.color(color.lime, "Up Wave")
+entryBuyColor         = input.color(color.aqua, "BUY Entry")
+entrySellColor        = input.color(color.orange, "SELL Entry")
+normalLabelColor      = input.color(color.gray, "Label")
+wave2FibColor         = input.color(color.yellow, "Wave 2 Fibo")
+fib1618Color          = input.color(color.fuchsia, "Entry 1.618")
+targetFibColor        = input.color(color.blue, "Target Fibo")
+neutralColor          = input.color(color.white, "Neutral")
 
 atrVal  = ta.atr(14)
 
@@ -175,7 +177,7 @@ f_new_label(_x, _y, _txt, _style, _bgColor) =>
          yloc=yloc.price,
          style=_style,
          color=_bgColor,
-         textcolor=textColor,
+         textcolor=neutralColor,
          size=f_label_size(drawingLabelSizeInput)
       )
     array.push(allLabels, lb)
@@ -190,7 +192,7 @@ f_new_label_sized(_x, _y, _txt, _style, _bgColor, _size) =>
          yloc=yloc.price,
          style=_style,
          color=_bgColor,
-         textcolor=textColor,
+         textcolor=neutralColor,
          size=_size
      )
     array.push(allLabels, lb)
@@ -318,9 +320,8 @@ f_wave2_breached_0618_between(_i1, _i2, _p0, _p1, _isUptrend) =>
 
 // =====================================================
 // WAVE 3 ENTRY RULE
-// 1 = Fibo 1
-// 2 = Fibo 0
-// 3 ENTRY fix di Fibo 1.618
+// 2 = Fibo 0, 1 = Fibo 1.
+// Entry can trigger at Fibo 1 or at the optional fib barrier.
 // =====================================================
 f_entry_1618_price(_p1, _p2) =>
     f_fib_price(_p1, _p2, entryFibLevel)
@@ -329,10 +330,10 @@ f_wave3_neg027_price(_p2, _p3) =>
     f_fib_price(_p2, _p3, entryFibNegLevel)
 
 f_entry_break_fib1_and_beyond_1618(_p3, _p1, _p2, _isDowntrend) =>
-    float fib1 = _p1
+    float triggerPrice = useEntryFibBarrier ? f_fib_price(_p1, _p2, entryTriggerFibLevel) : _p1
 
-    bool breakFib1Down = _isDowntrend and _p3 < fib1
-    bool breakFib1Up = not _isDowntrend and _p3 > fib1
+    bool breakFib1Down = _isDowntrend and _p3 <= triggerPrice
+    bool breakFib1Up = not _isDowntrend and _p3 >= triggerPrice
 
     breakFib1Down or breakFib1Up
 
@@ -350,7 +351,7 @@ f_wave4_fib2_price(_p2, _p3) =>
 // =====================================================
 // PROBABILITY STATS
 // Downtrend signal = Buy. Uptrend signal = Sell.
-// Entry = Wave 3, SL = -0.27 from Wave 2 to Wave 3, TP = 0.619 from Wave 2 to Wave 3.
+// Entry = Wave 3, SL = -0.27 from Wave 2 to Wave 3, TP = 0.618 from Wave 2 to Wave 3.
 // =====================================================
 f_stats_key_exists(_key) =>
     bool exists = false
@@ -428,8 +429,8 @@ f_draw_parallel_trendlines(_i0, _p0, _i1, _p1, _i2, _p2, _i3, _p3, _endX) =>
         string key02 = "TL02_" + str.tostring(_i0) + "_" + str.tostring(_i2)
         string key13 = "TL13_" + str.tostring(_i1) + "_" + str.tostring(_i3)
 
-        f_upsert_line(key02, _i0, _p0, _endX, y02End, trendLineColor, line.style_solid, drawingLineWidth, extend.none)
-        f_upsert_line(key13, _i1, _p1, _endX, y13End, trendLineColor, line.style_solid, drawingLineWidth, extend.none)
+        f_upsert_line(key02, _i0, _p0, _endX, y02End, neutralColor, line.style_solid, drawingLineWidth, extend.none)
+        f_upsert_line(key13, _i1, _p1, _endX, y13End, neutralColor, line.style_solid, drawingLineWidth, extend.none)
 
 // =====================================================
 // DRAW FIBO LINES
@@ -443,11 +444,11 @@ f_draw_wave2_fib618(_i0, _i1, _i2, _p0, _p1, _isDowntrend) =>
         string lineKey618 = "FIB2_0618_LINE_" + waveKey
         string lineKey50  = "FIB2_050_LINE_" + waveKey
 
-        f_new_line_once(lineKey618, _i0, fib618, _i2, fib618, fib618Color, line.style_dashed, drawingLineWidth, extend.none)
-        f_new_line_once(lineKey50, _i0, fib50, _i2, fib50, fib50Color, line.style_dashed, drawingLineWidth, extend.none)
+        f_new_line_once(lineKey618, _i0, fib618, _i2, fib618, wave2FibColor, line.style_dashed, drawingLineWidth, extend.none)
+        f_new_line_once(lineKey50, _i0, fib50, _i2, fib50, wave2FibColor, line.style_dashed, drawingLineWidth, extend.none)
 
 f_draw_entry_fib1618(_i1, _i3, _p1, _p2, _isDowntrend) =>
-    if showFibLines
+    if showFibLines and showEntryFib1618
         float fib1618 = f_entry_1618_price(_p1, _p2)
         int labelX    = f_mid_x(_i1, _i3)
         float labelY  = fib1618
@@ -468,6 +469,26 @@ f_draw_entry_fib1618(_i1, _i3, _p1, _p2, _isDowntrend) =>
              f_label_size(drawingLabelSizeInput)
          )
 
+f_draw_entry_trigger_fib(_i1, _i3, _p1, _p2, _isDowntrend) =>
+    if showFibLines and useEntryFibBarrier
+        float triggerPrice = f_fib_price(_p1, _p2, entryTriggerFibLevel)
+        int labelX = f_mid_x(_i1, _i3)
+        string directionKey = _isDowntrend ? "D_" : "U_"
+        string lineKey = "ENTRY_TRIGGER_LINE_" + directionKey + str.tostring(_i3)
+        string lblKey = "ENTRY_TRIGGER_LABEL_" + directionKey + str.tostring(_i3)
+        string triggerText = "TRIGGER " + str.tostring(entryTriggerFibLevel, "#.###") + "\n" + f_price_text(triggerPrice)
+
+        f_new_line_once(lineKey, _i1, triggerPrice, _i3, triggerPrice, fib1618Color, line.style_dashed, drawingLineWidth, extend.none)
+        f_new_label_once_sized(
+             lblKey,
+             labelX,
+             triggerPrice,
+             triggerText,
+             _isDowntrend ? label.style_label_up : label.style_label_down,
+             normalLabelColor,
+             f_label_size(drawingLabelSizeInput)
+         )
+
 f_draw_wave3_neg027(_i2, _i3, _p2, _p3, _isDowntrend) =>
     if showFibLines
         float fibNeg027 = f_wave3_neg027_price(_p2, _p3)
@@ -478,7 +499,7 @@ f_draw_wave3_neg027(_i2, _i3, _p2, _p3, _isDowntrend) =>
         string lineKey = "FIB3_NEG027_LINE_" + directionKey + str.tostring(_i3)
         string lblKey = "FIB3_NEG027_LABEL_" + directionKey + str.tostring(_i3)
 
-        f_new_line_once(lineKey, _i3, fibNeg027, endX, fibNeg027, fibNeg027Color, line.style_dashed, drawingLineWidth, extend.none)
+        f_new_line_once(lineKey, _i3, fibNeg027, endX, fibNeg027, targetFibColor, line.style_dashed, drawingLineWidth, extend.none)
 
         f_new_label_once_sized(
              lblKey,
@@ -506,14 +527,14 @@ f_draw_wave4_fib618_right(_i2, _i3, _p2, _p3, _isDowntrend) =>
         string lineKeyB = "FIB4R_0786_LINE_" + waveKey
         string lblKeyB  = "FIB4R_0786_LABEL_" + waveKey
 
-        f_new_line_once(lineKeyA, _i3, fib4A, endX, fib4A, fib4Color, line.style_dashed, drawingLineWidth, extend.none)
-        f_new_line_once(lineKeyB, _i3, fib4B, endX, fib4B, fib4Color, line.style_dashed, drawingLineWidth, extend.none)
+        f_new_line_once(lineKeyA, _i3, fib4A, endX, fib4A, targetFibColor, line.style_dashed, drawingLineWidth, extend.none)
+        f_new_line_once(lineKeyB, _i3, fib4B, endX, fib4B, targetFibColor, line.style_dashed, drawingLineWidth, extend.none)
 
         f_new_label_once_sized(
              lblKeyA,
              labelX,
              labelYA,
-             "0.619\n" + f_price_text(fib4A),
+             "0.618\n" + f_price_text(fib4A),
              _isDowntrend ? label.style_label_down : label.style_label_up,
              normalLabelColor,
              f_label_size(drawingLabelSizeInput)
@@ -631,6 +652,7 @@ f_draw_03_down(_i0, _p0, _i1, _p1, _i2, _p2, _i3, _p3, _showNeg027) =>
     f_draw_parallel_trendlines(_i0, _p0, _i1, _p1, _i2, _p2, _i3, _p3, _i3)
     f_draw_wave2_fib618(_i0, _i1, _i2, _p0, _p1, true)
     f_draw_entry_fib1618(_i1, _i3, _p1, _p2, true)
+    f_draw_entry_trigger_fib(_i1, _i3, _p1, _p2, true)
     f_draw_entry_price_line(_i3, _p3, true)
     if _showNeg027
         f_draw_wave3_neg027(_i2, _i3, _p2, _p3, true)
@@ -653,6 +675,7 @@ f_draw_03_up(_i0, _p0, _i1, _p1, _i2, _p2, _i3, _p3, _showNeg027) =>
     f_draw_parallel_trendlines(_i0, _p0, _i1, _p1, _i2, _p2, _i3, _p3, _i3)
     f_draw_wave2_fib618(_i0, _i1, _i2, _p0, _p1, false)
     f_draw_entry_fib1618(_i1, _i3, _p1, _p2, false)
+    f_draw_entry_trigger_fib(_i1, _i3, _p1, _p2, false)
     f_draw_entry_price_line(_i3, _p3, false)
     if _showNeg027
         f_draw_wave3_neg027(_i2, _i3, _p2, _p3, false)
@@ -818,7 +841,8 @@ if showEarlyWave3Entry and useAggressiveWave3
             activeBear012 := false
         else
             float wave3Price = low
-            bool touchEntry = low <= activeBearP1
+            float triggerPrice = useEntryFibBarrier ? f_fib_price(activeBearP1, activeBearP2, entryTriggerFibLevel) : activeBearP1
+            bool touchEntry = low <= triggerPrice
             int wave3Distance = i3 - activeBearI2
             bool wave3DistanceOK = wave3Distance >= pivotLen and wave3Distance <= maxSwingBars
             bool parallelValid = f_parallel_valid(activeBearI0, activeBearP0, activeBearI1, activeBearP1, activeBearI2, activeBearP2, i3, wave3Price)
@@ -845,7 +869,8 @@ if showEarlyWave3Entry and useAggressiveWave3
             activeBull012 := false
         else
             float wave3Price = high
-            bool touchEntry = high >= activeBullP1
+            float triggerPrice = useEntryFibBarrier ? f_fib_price(activeBullP1, activeBullP2, entryTriggerFibLevel) : activeBullP1
+            bool touchEntry = high >= triggerPrice
             int wave3Distance = i3 - activeBullI2
             bool wave3DistanceOK = wave3Distance >= pivotLen and wave3Distance <= maxSwingBars
             bool parallelValid = f_parallel_valid(activeBullI0, activeBullP0, activeBullI1, activeBullP1, activeBullI2, activeBullP2, i3, wave3Price)
@@ -1031,27 +1056,27 @@ if showProbabilityPanel and barstate.islast
         table.merge_cells(probabilityTable, 0, 11, 1, 11)
         probabilityTableOverallMerged := true
 
-    table.cell(probabilityTable, 0, 0, "HoekaGata Wave3 Pro", text_color=textColor, bgcolor=transparentBg, text_halign=text.align_center, text_size=panelHeaderFooterTextSize)
-    table.cell(probabilityTable, 0, 1, "by Syakir Arslan", text_color=textColor, bgcolor=transparentBg, text_halign=text.align_center, text_size=size.small)
-    table.cell(probabilityTable, 0, 2, cellPad + "Pivot Range", text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 2, cellPad + str.tostring(pivotLen) + " / " + str.tostring(maxSwingBars), text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 3, cellPad + "Trades", text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 3, cellPad + str.tostring(totalTrades), text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 4, cellPad + "Closed / Open", text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 4, cellPad + str.tostring(closedTrades) + " / " + str.tostring(openTrades), text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 5, cellPad + "Buy", text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 5, cellPad + f_format_probability(buyWins, closedBuy) + " (" + str.tostring(totalBuy) + ")", text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 6, cellPad + "Sell", text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 6, cellPad + f_format_probability(sellWins, closedSell) + " (" + str.tostring(totalSell) + ")", text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 7, cellPad + "TP Hits", text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 7, cellPad + str.tostring(totalWins), text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 8, cellPad + "SL Hits", text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 8, cellPad + str.tostring(totalLosses), text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 9, cellPad + "TP Streak", text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 9, cellPad + str.tostring(maxTPStreak), text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 10, cellPad + "SL Streak", text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 10, cellPad + str.tostring(maxSLStreak), text_color=textColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 11, "Overall: " + f_format_probability(totalWins, closedTrades), text_color=textColor, bgcolor=transparentBg, text_halign=text.align_center, text_size=panelHeaderFooterTextSize)
+    table.cell(probabilityTable, 0, 0, "HoekaGata Wave3 Pro", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_center, text_size=panelHeaderFooterTextSize)
+    table.cell(probabilityTable, 0, 1, "by Syakir Arslan", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_center, text_size=size.small)
+    table.cell(probabilityTable, 0, 2, cellPad + "Pivot Range", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 1, 2, cellPad + str.tostring(pivotLen) + " / " + str.tostring(maxSwingBars), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 0, 3, cellPad + "Trades", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 1, 3, cellPad + str.tostring(totalTrades), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 0, 4, cellPad + "Closed / Open", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 1, 4, cellPad + str.tostring(closedTrades) + " / " + str.tostring(openTrades), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 0, 5, cellPad + "Buy", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 1, 5, cellPad + f_format_probability(buyWins, closedBuy) + " (" + str.tostring(totalBuy) + ")", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 0, 6, cellPad + "Sell", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 1, 6, cellPad + f_format_probability(sellWins, closedSell) + " (" + str.tostring(totalSell) + ")", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 0, 7, cellPad + "TP Hits", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 1, 7, cellPad + str.tostring(totalWins), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 0, 8, cellPad + "SL Hits", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 1, 8, cellPad + str.tostring(totalLosses), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 0, 9, cellPad + "TP Streak", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 1, 9, cellPad + str.tostring(maxTPStreak), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 0, 10, cellPad + "SL Streak", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 1, 10, cellPad + str.tostring(maxSLStreak), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
+    table.cell(probabilityTable, 0, 11, "Overall: " + f_format_probability(totalWins, closedTrades), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_center, text_size=panelHeaderFooterTextSize)
 
 // =====================================================
 // ALERT
@@ -1059,7 +1084,7 @@ if showProbabilityPanel and barstate.islast
 bool wave3BuyAlertAllowed = bearWave3EntrySignal and enableBuyAlerts
 bool wave3SellAlertAllowed = bullWave3EntrySignal and enableSellAlerts
 
-if enableWave3Alerts and (wave3BuyAlertAllowed or wave3SellAlertAllowed)
+if wave3BuyAlertAllowed or wave3SellAlertAllowed
     alert(
          wave3AlertSide + " | Entry: " + f_price_text(wave3AlertEntry) +
          " | SL: " + f_price_text(wave3AlertSL) +
@@ -1069,19 +1094,19 @@ if enableWave3Alerts and (wave3BuyAlertAllowed or wave3SellAlertAllowed)
      )
 
 alertcondition(
-     bearWave3EntrySignal or bullWave3EntrySignal,
+     wave3BuyAlertAllowed or wave3SellAlertAllowed,
      title="Wave 3 Terbentuk",
      message="Wave 3 terbentuk on {{ticker}} {{interval}}. Use Any alert() function call for Entry, SL, and TP."
  )
 
 alertcondition(
-     bearWave3EntrySignal,
+     wave3BuyAlertAllowed,
      title="Wave 3 BUY Terbentuk",
      message="Wave 3 BUY terbentuk on {{ticker}} {{interval}}. Use Any alert() function call for Entry, SL, and TP."
  )
 
 alertcondition(
-     bullWave3EntrySignal,
+     wave3SellAlertAllowed,
      title="Wave 3 SELL Terbentuk",
      message="Wave 3 SELL terbentuk on {{ticker}} {{interval}}. Use Any alert() function call for Entry, SL, and TP."
  )
