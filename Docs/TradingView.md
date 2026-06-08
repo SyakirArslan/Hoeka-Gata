@@ -24,29 +24,30 @@ Source/HoekaGata_Wave3Pro.pine
 | --- | --- |
 | `Pivot Min` | Jarak swing minimal. |
 | `Pivot Max` | Jarak swing maksimal. |
-| `Display Mode` | `Latest only` atau `History`. |
-| `Show Wave 3` | Mengaktifkan signal Wave 3. |
-| `Show Wave Lines` | Menampilkan garis wave. |
-| `Show Fibo Lines` | Menampilkan fibonacci. |
-| `Show Trendline 0-2 and 1-3` | Menampilkan trendline validasi. |
-| `Line Width` | Ketebalan garis drawing. |
-| `Label Size` | Ukuran label chart. |
-| `Enable Wave 3 Formed Alerts` | Mengaktifkan alert umum Wave 3. |
-| `Enable BUY Alerts` | Mengaktifkan alert BUY. |
-| `Enable SELL Alerts` | Mengaktifkan alert SELL. |
-| `Use Parallel Slope Rule` | Validasi kemiripan slope 0-2 dan 1-3. |
-| `Parallel Slope Tolerance` | Toleransi slope parallel. |
-| `Wave 2 Fibo Tolerance` | Toleransi area fib Wave 2. |
-| `Min Bars Between Entry` | Jarak minimal antar signal entry. |
-| `Max Drawing Objects` | Batas jumlah object chart. |
-| `Show Probability Panel` | Menampilkan panel statistik. |
+| `Wave 2 Fibo Tol` | Toleransi area fib Wave 2. |
+| `Entry Barrier` | Mengaktifkan barrier minimum sebelum signal entry valid. |
+| `Trigger Fibo` | Level fibo trigger entry, contoh `1.272`, `1.414`, atau `1.618`. |
+| `Slope Rule` | Validasi kemiripan slope 0-2 dan 1-3. |
+| `Slope Tol` | Toleransi slope parallel. |
+| `Entry Gap (Candle)` | Jarak minimal antar signal entry dalam candle. |
+| `BUY Alert` | Mengaktifkan alert BUY. |
+| `SELL Alert` | Mengaktifkan alert SELL. |
+| `Waves Line` | Menampilkan garis wave. |
+| `Trendline` | Menampilkan trendline validasi 0-2 dan 1-3. |
+| `Fibo Line` | Menampilkan fibonacci. |
+| `1.618 Line` | Menampilkan garis/label fibo entry `1.618`. |
+| `Mode` | `Latest only` atau `History`. |
+| `Max Objects` | Batas jumlah object chart. |
+| `Width` | Ketebalan garis drawing. |
+| `Label` | Ukuran label chart. |
+| `HoekaGata Panel` | Menampilkan panel statistik. |
 
 ## Level Fibo
 
 | Level | Fungsi |
 | --- | --- |
 | `0.500` dan `0.618` | Zona validasi Wave 2. |
-| `1.618` | Area entry Wave 3. |
+| `1.618` | Area extension Wave 3 dan warna untuk trigger barrier. |
 | `-0.270` | Area SL. |
 | `0.618` | TP Wave 4 di TradingView. |
 | `0.786` | Extend TP Wave 4. |
@@ -56,9 +57,8 @@ Source/HoekaGata_Wave3Pro.pine
 Script menyediakan:
 
 - `alert()` dinamis berisi side, entry, SL, TP, ticker, dan timeframe.
-- `alertcondition()` untuk Wave 3 umum.
-- `alertcondition()` untuk Wave 3 BUY.
-- `alertcondition()` untuk Wave 3 SELL.
+- `alertcondition()` untuk Wave 3 umum, BUY, dan SELL mengikuti toggle `BUY Alert` dan `SELL Alert`.
+- Tidak ada master alert Wave 3 terpisah; jika BUY/SELL alert aktif, signal Wave 3 arah tersebut ikut aktif.
 
 Untuk alert yang membawa harga entry/SL/TP, gunakan opsi TradingView `Any alert() function call`.
 

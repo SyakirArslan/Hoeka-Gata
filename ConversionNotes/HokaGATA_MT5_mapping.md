@@ -29,9 +29,10 @@ Dokumen ini menjelaskan mapping logic dari TradingView Pine Script ke indikator 
 - Swing sequence mengikuti pola alternating high/low dengan filter `Pivot Min` dan `Pivot Max`.
 - Wave 2 valid pada zona fib `0.500` sampai `0.618` dengan tolerance.
 - Aggressive Wave 3 signal aktif saat struktur 0-1-2 break Wave 1.
+- Optional entry fib barrier dapat mewajibkan harga break level trigger, misalnya `1.272`, sebelum signal valid.
 - BUY berasal dari downtrend sequence.
 - SELL berasal dari uptrend sequence.
-- Entry memakai fib `1.618`.
+- Fibo `1.618` adalah level visual entry extension dan bisa dimatikan dari display input.
 - SL memakai fib Wave 3 `-0.270`.
 - TP memakai retracement Wave 4.
 - Extend TP memakai retracement Wave 4 `0.786`.
@@ -45,6 +46,8 @@ Dokumen ini menjelaskan mapping logic dari TradingView Pine Script ke indikator 
 - TradingView `label` dan `line` menjadi object chart MT5 dengan prefix `HoekaGataIndicator_MT5_`.
 - Mode `Latest only` membersihkan object lama sebelum drawing setup terbaru.
 - Public labels dapat memakai nama umum seperti `Confirm Zone`, `Entry`, `SL`, `TP`, dan `Extend TP`.
+- Wave 3 signal engine selalu aktif; display input hanya mengatur object chart, bukan mematikan signal engine.
+- Alert signal mengikuti toggle BUY dan SELL; tidak ada master Wave 3 alert toggle terpisah.
 - MT5 push notification hanya aktif jika terminal sudah dikonfigurasi dan `InpEnablePushNotify = true`.
 - Signal dipublish ke indicator buffers dan MT5 Global Variables agar EA dapat membaca signal lebih stabil.
 

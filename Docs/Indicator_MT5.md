@@ -30,40 +30,76 @@ Plot BUY dan SELL memakai `DRAW_NONE` karena signal dipakai untuk EA dan publika
 
 ## Input Utama
 
+### Config / Rules
+
 | Input | Fungsi |
 | --- | --- |
 | `InpPivotMin` | Jarak swing minimal. |
 | `InpPivotMax` | Jarak swing maksimal. |
-| `InpDisplayMode` | `DisplayLatestOnly` atau `DisplayHistory`. |
-| `InpEnableDrawing` | Mengaktifkan object drawing di chart. |
-| `InpShowWave3` | Mengaktifkan signal Wave 3. |
-| `InpShowWaveLines` | Menampilkan garis wave. |
-| `InpShowFibLines` | Menampilkan level fibonacci. |
-| `InpShowTrendLines` | Menampilkan trendline 0-2 dan 1-3. |
-| `InpShowEntryPriceLine` | Menampilkan garis/label entry. |
-| `InpShowWaveLabels` | Menampilkan label wave 0, 1, 2, 3. |
-| `InpEnableWave3Alerts` | Mengaktifkan alert Wave 3. |
+| `InpWave2FibTolerance` | Toleransi zona Wave 2. |
+| `InpUseEntryFibBarrier` | Mengaktifkan barrier minimum sebelum signal entry valid. |
+| `InpEntryTriggerFibLevel` | Level fibo trigger entry, contoh `1.272`, `1.414`, atau `1.618`. |
+| `InpUseParallelSlopeRule` | Validasi slope 0-2 dan 1-3. |
+| `InpParallelTolerance` | Toleransi slope parallel. |
+| `InpMinBarsBetweenEntry` | Jarak minimal antar signal entry dalam candle. |
+
+### Alerts
+
+| Input | Fungsi |
+| --- | --- |
 | `InpEnableBuyAlerts` | Mengaktifkan alert BUY. |
 | `InpEnableSellAlerts` | Mengaktifkan alert SELL. |
 | `InpEnablePushNotify` | Mengirim push notification MT5 jika terminal sudah dikonfigurasi. |
-| `InpUseParallelSlopeRule` | Validasi slope 0-2 dan 1-3. |
-| `InpParallelTolerance` | Toleransi slope parallel. |
-| `InpWave2FibTolerance` | Toleransi zona Wave 2. |
-| `InpMinBarsBetweenEntry` | Jarak minimal antar signal entry. |
+
+### Display
+
+| Input | Fungsi |
+| --- | --- |
+| `InpShowWaveLines` | Menampilkan garis wave. |
+| `InpShowTrendLines` | Menampilkan trendline 0-2 dan 1-3. |
+| `InpShowFibLines` | Menampilkan level fibonacci. |
+| `InpShowEntryFib1618` | Menampilkan garis/label fibo entry `1.618`. |
+| `InpShowEntryPriceLine` | Menampilkan garis/label entry. |
+| `InpShowWaveLabels` | Menampilkan label wave 0, 1, 2, 3. |
+
+### General
+
+| Input | Fungsi |
+| --- | --- |
+| `InpDisplayMode` | `DisplayLatestOnly` atau `DisplayHistory`. |
+| `InpEnableDrawing` | Mengaktifkan object drawing di chart. |
 | `InpSuppressSignalsWhileTradeOpen` | Menahan signal baru saat trade virtual masih open. |
 | `InpSignalConfirmDelaySeconds` | Delay konfirmasi signal sebelum dipublish. |
 | `InpMaxBarsToProcess` | Batas jumlah bar yang diproses. |
-| `InpShowProbabilityPanel` | Menampilkan panel probability. |
+| `InpDrawingLineWidth` | Ketebalan garis drawing. |
+| `InpShowProbabilityPanel` | Menampilkan panel HoekaGata. |
 | `InpPublicZoneLabels` | Memakai label publik seperti `Confirm Zone`, `SL`, `TP`. |
+
+### Style
+
+| Input | Fungsi |
+| --- | --- |
+| `InpDownColor` | Warna wave downtrend. |
+| `InpUpColor` | Warna wave uptrend. |
+| `InpEntryBuyColor` | Warna garis entry BUY. |
+| `InpEntrySellColor` | Warna garis entry SELL. |
+| `InpNormalLabelColor` | Warna background label. |
+| `InpWave2FibColor` | Warna fibo Wave 2 `0.500` dan `0.618`. |
+| `InpFib1618Color` | Warna fibo entry `1.618` dan trigger barrier. |
+| `InpTargetFibColor` | Warna fibo target `-0.270`, `0.618`, dan `0.786`. |
+| `InpNeutralColor` | Warna trendline, text label, dan text panel. |
 
 ## Rule Signal
 
 - Pivot mentah memakai `RAW_PIVOT_LEN = 2`.
 - Swing disusun bergantian high/low dengan filter `InpPivotMin` dan `InpPivotMax`.
 - Wave 2 valid jika berada di zona fib `0.500` sampai `0.618` dengan toleransi.
-- BUY muncul dari sequence downtrend yang break Wave 1.
-- SELL muncul dari sequence uptrend yang break Wave 1.
-- Entry memakai level fib `1.618`.
+- Wave 3 engine selalu aktif; tidak ada input untuk mematikan signal engine.
+- BUY muncul dari sequence downtrend yang break Wave 1 atau trigger fibo.
+- SELL muncul dari sequence uptrend yang break Wave 1 atau trigger fibo.
+- Jika `InpUseEntryFibBarrier = false`, entry valid saat harga break Wave 1.
+- Jika `InpUseEntryFibBarrier = true`, entry valid setelah harga break `InpEntryTriggerFibLevel`.
+- Garis `1.618` adalah level visual terpisah dan bisa dimatikan dengan `InpShowEntryFib1618`.
 - SL memakai level Wave 3 `-0.270`.
 - TP memakai retracement Wave 4 `0.618`.
 - Extend TP memakai retracement Wave 4 `0.786`.
