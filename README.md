@@ -1,4 +1,4 @@
-# HoekaGata MT5 Conversion Workspace
+# HoekaGata Trading System
 
 Repository ini berisi source TradingView Pine Script, hasil konversi indikator MT5, dan EA MT5 untuk auto trading berbasis signal HoekaGata Wave3.
 
