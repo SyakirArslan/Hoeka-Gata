@@ -77,7 +77,7 @@ void DrawPanelRow(const int row, const string text, const int fontSize = 9)
    ObjectSetInteger(0, name, OBJPROP_ANCHOR, ANCHOR_RIGHT_UPPER);
    ObjectSetInteger(0, name, OBJPROP_XDISTANCE, 10);
    ObjectSetInteger(0, name, OBJPROP_YDISTANCE, 18 + row * 16);
-   ObjectSetInteger(0, name, OBJPROP_COLOR, InpTextColor);
+   ObjectSetInteger(0, name, OBJPROP_COLOR, InpNeutralColor);
    ObjectSetInteger(0, name, OBJPROP_FONTSIZE, fontSize);
    ObjectSetString(0, name, OBJPROP_FONT, "Arial");
    ObjectSetString(0, name, OBJPROP_TEXT, text);

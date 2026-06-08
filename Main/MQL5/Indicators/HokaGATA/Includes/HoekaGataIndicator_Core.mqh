@@ -124,7 +124,7 @@ void RecalculateHokaGata(
          }
       }
 
-      if(InpShowWave3 && ArraySize(swings) >= 2)
+      if(ArraySize(swings) >= 2)
       {
          int b2 = ArraySize(swings) - 2;
          int t0 = swings[b2].type;
@@ -192,7 +192,6 @@ void RecalculateHokaGata(
          }
       }
 
-      if(InpShowWave3)
       {
          int i3 = i;
          bool entryDistanceOK = lastEntry3 < 0 || i3 - lastEntry3 >= InpMinBarsBetweenEntry;
@@ -209,7 +208,8 @@ void RecalculateHokaGata(
             else
             {
                double wave3Price = low[i];
-               bool touchEntry = low[i] <= activeBearP1;
+               double triggerPrice = EntryTriggerPrice(activeBearP1, activeBearP2);
+               bool touchEntry = low[i] <= triggerPrice;
                int wave3Distance = i3 - activeBearI2;
                bool wave3DistanceOK = wave3Distance >= InpPivotMin && wave3Distance <= InpPivotMax;
                bool parallelValid = ParallelValid(activeBearI0, activeBearP0, activeBearI1, activeBearP1, activeBearI2, activeBearP2, i3, wave3Price);
@@ -252,7 +252,8 @@ void RecalculateHokaGata(
             else
             {
                double wave3Price = high[i];
-               bool touchEntry = high[i] >= activeBullP1;
+               double triggerPrice = EntryTriggerPrice(activeBullP1, activeBullP2);
+               bool touchEntry = high[i] >= triggerPrice;
                int wave3Distance = i3 - activeBullI2;
                bool wave3DistanceOK = wave3Distance >= InpPivotMin && wave3Distance <= InpPivotMax;
                bool parallelValid = ParallelValid(activeBullI0, activeBullP0, activeBullI1, activeBullP1, activeBullI2, activeBullP2, i3, wave3Price);
@@ -287,7 +288,7 @@ void RecalculateHokaGata(
 
       UpdateOpenTrades(openTrades, closedTrades, i, high, low);
 
-      if(InpEnableWave3Alerts && i == rates_total - 1)
+      if(i == rates_total - 1)
       {
          bool buyAllowed = bearWave3EntrySignal && InpEnableBuyAlerts;
          bool sellAllowed = bullWave3EntrySignal && InpEnableSellAlerts;

@@ -62,6 +62,11 @@ double Entry1618Price(const double p1, const double p2)
    return FibPrice(p1, p2, ENTRY_FIB_LEVEL);
 }
 
+double EntryTriggerPrice(const double p1, const double p2)
+{
+   return InpUseEntryFibBarrier ? FibPrice(p1, p2, InpEntryTriggerFibLevel) : p1;
+}
+
 double Wave3Neg027Price(const double p2, const double p3)
 {
    return FibPrice(p2, p3, ENTRY_NEG_LEVEL);

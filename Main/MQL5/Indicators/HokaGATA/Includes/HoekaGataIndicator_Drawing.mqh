@@ -19,6 +19,7 @@ void Draw03Down(const int i0, const double p0, const int i1, const double p1, co
    DrawParallelTrendlines(i0, p0, i1, p1, i2, p2, i3, p3, i3, rates_total, time);
    DrawWave2Zone(i0, i1, i2, p0, p1, true, rates_total, time);
    DrawEntryFib(i1, i3, p1, p2, true, rates_total, time);
+   DrawEntryTriggerFib(i1, i3, p1, p2, true, rates_total, time);
    if(InpShowEntryPriceLine)
       DrawEntryPriceLine(i3, p3, true, rates_total, time);
    if(showNeg027)
@@ -51,6 +52,7 @@ void Draw03Up(const int i0, const double p0, const int i1, const double p1, cons
    DrawParallelTrendlines(i0, p0, i1, p1, i2, p2, i3, p3, i3, rates_total, time);
    DrawWave2Zone(i0, i1, i2, p0, p1, false, rates_total, time);
    DrawEntryFib(i1, i3, p1, p2, false, rates_total, time);
+   DrawEntryTriggerFib(i1, i3, p1, p2, false, rates_total, time);
    if(InpShowEntryPriceLine)
       DrawEntryPriceLine(i3, p3, false, rates_total, time);
    if(showNeg027)
@@ -72,8 +74,8 @@ void DrawParallelTrendlines(const int i0, const double p0, const int i1, const d
 
    double y02End = ProjectY(i0, p0, i2, p2, endX);
    double y13End = ProjectY(i1, p1, i3, p3, endX);
-   DrawLine("TL02_" + IntegerToString(i0) + "_" + IntegerToString(i2), i0, p0, endX, y02End, InpTrendLineColor, STYLE_SOLID, rates_total, time);
-   DrawLine("TL13_" + IntegerToString(i1) + "_" + IntegerToString(i3), i1, p1, endX, y13End, InpTrendLineColor, STYLE_SOLID, rates_total, time);
+   DrawLine("TL02_" + IntegerToString(i0) + "_" + IntegerToString(i2), i0, p0, endX, y02End, InpNeutralColor, STYLE_SOLID, rates_total, time);
+   DrawLine("TL13_" + IntegerToString(i1) + "_" + IntegerToString(i3), i1, p1, endX, y13End, InpNeutralColor, STYLE_SOLID, rates_total, time);
 }
 
 void DrawWave2Zone(const int i0, const int i1, const int i2, const double p0, const double p1, const bool isDowntrend, const int rates_total, const datetime &time[])
@@ -84,8 +86,8 @@ void DrawWave2Zone(const int i0, const int i1, const int i2, const double p0, co
    double fib618 = FibPrice(p0, p1, WAVE2_FIB_LEVEL);
    double fib50 = FibPrice(p0, p1, WAVE2_FIB_LEVEL2);
    string key = IntegerToString(i0) + "_" + IntegerToString(i1);
-   DrawLine("FIB2_0618_LINE_" + key, i0, fib618, i2, fib618, InpFib618Color, STYLE_DASH, rates_total, time);
-   DrawLine("FIB2_050_LINE_" + key, i0, fib50, i2, fib50, InpFib50Color, STYLE_DASH, rates_total, time);
+   DrawLine("FIB2_0618_LINE_" + key, i0, fib618, i2, fib618, InpWave2FibColor, STYLE_DASH, rates_total, time);
+   DrawLine("FIB2_050_LINE_" + key, i0, fib50, i2, fib50, InpWave2FibColor, STYLE_DASH, rates_total, time);
 
    int labelX = (int)MathRound((i0 + i2) / 2.0);
    double labelY = (fib50 + fib618) / 2.0;
@@ -94,7 +96,7 @@ void DrawWave2Zone(const int i0, const int i1, const int i2, const double p0, co
 
 void DrawEntryFib(const int i1, const int i3, const double p1, const double p2, const bool isDowntrend, const int rates_total, const datetime &time[])
 {
-   if(!InpShowFibLines)
+   if(!InpShowFibLines || !InpShowEntryFib1618)
       return;
 
    double fib1618 = Entry1618Price(p1, p2);
@@ -103,6 +105,21 @@ void DrawEntryFib(const int i1, const int i3, const double p1, const double p2, 
    string directionKey = isDowntrend ? "D_" : "U_";
    DrawLine("FIB3_LINE_" + directionKey + IntegerToString(i3), i1, fib1618, i3, fib1618, InpFib1618Color, STYLE_DASH, rates_total, time);
    DrawText("FIB3_LABEL_" + directionKey + IntegerToString(i3), labelX, labelY, (InpPublicZoneLabels ? "Area Fibo 1.618 - " : "1.618\n") + PriceText(fib1618), InpNormalLabelColor, rates_total, time);
+}
+
+void DrawEntryTriggerFib(const int i1, const int i3, const double p1, const double p2, const bool isDowntrend, const int rates_total, const datetime &time[])
+{
+   if(!InpShowFibLines || !InpUseEntryFibBarrier)
+      return;
+
+   double triggerPrice = EntryTriggerPrice(p1, p2);
+   int labelX = (int)MathRound((i1 + i3) / 2.0);
+   double labelY = triggerPrice + (isDowntrend ? LabelOffset(p2) : -LabelOffset(p2));
+   string directionKey = isDowntrend ? "D_" : "U_";
+   string triggerText = "TRIGGER " + DoubleToString(InpEntryTriggerFibLevel, 3) + "\n" + PriceText(triggerPrice);
+
+   DrawLine("ENTRY_TRIGGER_LINE_" + directionKey + IntegerToString(i3), i1, triggerPrice, i3, triggerPrice, InpFib1618Color, STYLE_DASH, rates_total, time);
+   DrawText("ENTRY_TRIGGER_LABEL_" + directionKey + IntegerToString(i3), labelX, labelY, triggerText, InpNormalLabelColor, rates_total, time);
 }
 
 void DrawWave3Neg027(const int i2, const int i3, const double p2, const double p3, const bool isDowntrend, const int rates_total, const datetime &time[])
@@ -115,7 +132,7 @@ void DrawWave3Neg027(const int i2, const int i3, const double p2, const double p
    int labelX = i3 + 26;
    double labelY = isDowntrend ? fibNeg027 - LabelOffset(p3) : fibNeg027 + LabelOffset(p3);
    string directionKey = isDowntrend ? "D_" : "U_";
-   DrawLine("FIB3_NEG027_LINE_" + directionKey + IntegerToString(i3), i3, fibNeg027, endX, fibNeg027, InpFibNeg027Color, STYLE_DASH, rates_total, time);
+   DrawLine("FIB3_NEG027_LINE_" + directionKey + IntegerToString(i3), i3, fibNeg027, endX, fibNeg027, InpTargetFibColor, STYLE_DASH, rates_total, time);
    DrawText("FIB3_NEG027_LABEL_" + directionKey + IntegerToString(i3), labelX, labelY, (InpPublicZoneLabels ? "SL - " : "-0.27\n") + PriceText(fibNeg027), InpNormalLabelColor, rates_total, time);
 }
 
@@ -133,8 +150,8 @@ void DrawWave4ZoneRight(const int i2, const int i3, const double p2, const doubl
    string directionKey = isDowntrend ? "D_" : "U_";
    string waveKey = directionKey + IntegerToString(i2);
 
-   DrawLine("FIB4R_0618_LINE_" + waveKey, i3, fib4A, endX, fib4A, InpFib4Color, STYLE_DASH, rates_total, time);
-   DrawLine("FIB4R_0786_LINE_" + waveKey, i3, fib4B, endX, fib4B, InpFib4Color, STYLE_DASH, rates_total, time);
+   DrawLine("FIB4R_0618_LINE_" + waveKey, i3, fib4A, endX, fib4A, InpTargetFibColor, STYLE_DASH, rates_total, time);
+   DrawLine("FIB4R_0786_LINE_" + waveKey, i3, fib4B, endX, fib4B, InpTargetFibColor, STYLE_DASH, rates_total, time);
    DrawText("FIB4R_0618_LABEL_" + waveKey, labelX, labelYA, (InpPublicZoneLabels ? "TP - " : "0.618\n") + PriceText(fib4A), InpNormalLabelColor, rates_total, time);
    DrawText("FIB4R_0786_LABEL_" + waveKey, labelX, labelYB, (InpPublicZoneLabels ? "Extend TP - " : "0.786\n") + PriceText(fib4B), InpNormalLabelColor, rates_total, time);
 }
@@ -176,7 +193,7 @@ void DrawText(const string key, const int index, const double price, const strin
    ObjectSetString(0, name, OBJPROP_TEXT, text);
    ObjectSetString(0, name, OBJPROP_FONT, "Arial");
    ObjectSetInteger(0, name, OBJPROP_FONTSIZE, 8);
-   ObjectSetInteger(0, name, OBJPROP_COLOR, clr == clrNONE ? InpTextColor : clr);
+   ObjectSetInteger(0, name, OBJPROP_COLOR, clr == clrNONE ? InpNeutralColor : clr);
    ObjectSetInteger(0, name, OBJPROP_ANCHOR, ANCHOR_CENTER);
    ObjectSetInteger(0, name, OBJPROP_BACK, false);
 }

@@ -7,44 +7,49 @@ enum DisplayMode
    DisplayHistory    = 1
 };
 
-input group "HoekaGataIndicator | Developed by Syakir Arslan"
+input group "Config / Rules"
 input int         InpPivotMin             = 3;
 input int         InpPivotMax             = 20;
-input DisplayMode InpDisplayMode          = DisplayLatestOnly;
-input bool        InpEnableDrawing        = true;
-input bool        InpShowWave3            = true;
-input bool        InpShowWaveLines        = true;
-input bool        InpShowFibLines         = true;
-input bool        InpShowTrendLines       = true;
-input bool        InpShowEntryPriceLine   = true;
-input bool        InpShowWaveLabels       = true;
-input int         InpDrawingLineWidth     = 1;
-input bool        InpEnableWave3Alerts    = true;
+input double      InpWave2FibTolerance    = 0.05;
+input bool        InpUseEntryFibBarrier   = false;
+input double      InpEntryTriggerFibLevel = 1.272;
+input bool        InpUseParallelSlopeRule = true;
+input double      InpParallelTolerance    = 0.14;
+input int         InpMinBarsBetweenEntry  = 20;
+
+input group "Alerts"
 input bool        InpEnableBuyAlerts      = true;
 input bool        InpEnableSellAlerts     = true;
 input bool        InpEnablePushNotify     = false;
-input bool        InpUseParallelSlopeRule = true;
-input double      InpParallelTolerance    = 0.14;
-input double      InpWave2FibTolerance    = 0.05;
-input int         InpMinBarsBetweenEntry  = 20;
+
+input group "Display"
+input bool        InpShowWaveLines        = true;
+input bool        InpShowTrendLines       = true;
+input bool        InpShowFibLines         = true;
+input bool        InpShowEntryFib1618     = true;
+input bool        InpShowEntryPriceLine   = true;
+input bool        InpShowWaveLabels       = true;
+
+input group "General"
+input DisplayMode InpDisplayMode          = DisplayLatestOnly;
+input bool        InpEnableDrawing        = true;
 input bool        InpSuppressSignalsWhileTradeOpen = true;
 input int         InpSignalConfirmDelaySeconds = 1;
 input int         InpMaxBarsToProcess     = 300;
+input int         InpDrawingLineWidth     = 1;
 input bool        InpShowProbabilityPanel = true;
 input bool        InpPublicZoneLabels     = true;
 
+input group "Style"
 input color       InpDownColor            = clrRed;
 input color       InpUpColor              = clrLime;
 input color       InpEntryBuyColor        = clrAqua;
 input color       InpEntrySellColor       = clrOrange;
 input color       InpNormalLabelColor     = clrGray;
-input color       InpFib618Color          = clrYellow;
-input color       InpFib50Color           = clrTeal;
+input color       InpWave2FibColor        = clrYellow;
 input color       InpFib1618Color         = clrMagenta;
-input color       InpFibNeg027Color       = clrBlue;
-input color       InpFib4Color            = clrPurple;
-input color       InpTrendLineColor       = clrWhite;
-input color       InpTextColor            = clrWhite;
+input color       InpTargetFibColor       = clrBlue;
+input color       InpNeutralColor         = clrWhite;
 
 double BuyBuffer[];
 double SellBuffer[];
