@@ -17,6 +17,7 @@ sumber aturan sekaligus alat validasi visual.
 | Pine Script Engulfing Breakout (lengkap) | `Source/HoekaGata_Indicator.pine` | [`Docs/TradingView.md`](Docs/TradingView.md) |
 | Pine Script Engulfing Breakout (draft lama) | `Source/HoekaGata_Indicator_Engulf.pine` | [`Docs/TradingView.md`](Docs/TradingView.md) |
 | Mockup panel hasil (HTML) | `Main/Docs/panel-mockup.html` | Acuan layout panel indikator |
+| Visual timing alert (HTML) | `Main/Docs/entry-alert-timing.html` | Kapan alert BREAK BODY / ENTRY / TP / SL keluar |
 | Build & deploy otomatis | `Main/Tools/Build-MT5.ps1` | [`Docs/Indicator_MT5.md`](Docs/Indicator_MT5.md#build-dan-deploy) |
 | AI skill (build & MT5) | `.claude/skills/hoekagata-build/SKILL.md`, `.claude/skills/hoekagata-mt5/SKILL.md` | Alur compile/deploy otomatis untuk agent |
 | Position Sizer (pihak ketiga) | `Main/MQL5/RiskCalculator/` | Utility risk calculator, bukan bagian signal engine |
@@ -68,6 +69,7 @@ MT5 — HoekaGataAlgo EA     (filter risk/spread/time + eksekusi order)
 Main/
   Docs/
     panel-mockup.html                Mockup HTML panel statistik indikator (acuan layout)
+    entry-alert-timing.html          Visual kapan alert BREAK BODY / ENTRY / TP / SL keluar
   Tools/
     Build-MT5.ps1                    Compile + deploy indikator & EA ke terminal MT5
   MQL5/

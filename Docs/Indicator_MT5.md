@@ -271,6 +271,12 @@ replay histori tidak membanjiri terminal. Format persis:
 Indikator memakai `Alert()` (popup terminal). Tidak ada `SendNotification()` / push, dan tidak ada
 input untuk mematikan alert per jenis.
 
+Karena setiap perhitungan me-replay penuh dari bar 1 tanpa menyimpan status "sudah pernah alert",
+alert `BREAK BODY TRIGGERED` / `ENTRY` bisa terulang pada tick-tick berikutnya selama candle tersebut
+masih bar terakhir; pengulangan berhenti sendiri setelah candle close. EA tidak terpengaruh karena
+`HoekaGataAlgo_Trading.mqh` menolak `signalTime` yang sama. Alur waktu alert secara visual:
+`Main/Docs/entry-alert-timing.html`.
+
 ## Panel Statistik
 
 Panel adalah tabel 2 kolom dengan latar transparan, menempel di sudut kanan atas
