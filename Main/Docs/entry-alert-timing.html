@@ -89,6 +89,54 @@
   Halaman ini hanya visual/penjelasan; tidak ada perubahan pada indikator.
 </p>
 
+<h2>0. Konsep: pola &rarr; break body &rarr; entry (dua level, tiga tahap)</h2>
+<div class="card">
+  <p style="margin:0 0 10px">
+    S = candle pola (engulfing), S&minus;1 = candle sebelumnya. Indikator tidak entry begitu pola muncul:
+    ada dua level yang harus ditembus berurutan.
+  </p>
+  <table>
+    <thead>
+      <tr><th>Tahap</th><th>Bar yang dicek</th><th>Syarat</th><th>State / panel</th><th>Alert</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1. Pola</td>
+        <td>S</td>
+        <td><code>close S &gt; open S</code>, <code>close S&minus;1 &lt; open S&minus;1</code>,
+            <b><code>close S &gt; high S&minus;1</code></b> (loose), filter body</td>
+        <td><code>BUY_SETUP</code> &rarr; PENDING BUY</td>
+        <td class="dim">&mdash;</td>
+      </tr>
+      <tr>
+        <td>2. Break body</td>
+        <td>S+1 dan seterusnya</td>
+        <td><code>high &ge; max(open, close) S&minus;1 + tol</code> <span class="dim">(tol default 0.00)</span></td>
+        <td><code>BUY_ARMED</code></td>
+        <td>BREAK BODY TRIGGERED</td>
+      </tr>
+      <tr>
+        <td>3. Entry</td>
+        <td>S+1 dan seterusnya, setelah tahap 2</td>
+        <td><code>high &ge; high S&minus;1 + 0.10&middot;ATR</code></td>
+        <td><code>BUY_ACTIVE</code></td>
+        <td class="buy"><b>ENTRY</b></td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="note">
+    Candle pola (S) <b>tidak pernah</b> menjadi bar entry: syarat <code>i &gt; setup.setupBar</code>
+    (Core.mqh 217) menahan trigger sampai candle berikutnya. Entry paling cepat di S+1, dan hanya setelah
+    break body kena &mdash; kedua tahap boleh terjadi di candle S+1 yang sama (dua alert berurutan).
+  </div>
+  <p class="dim" style="margin-top:10px">
+    Jadi PENDING BUY <b>bukan</b> hasil &ldquo;candle S menembus body S&minus;1&rdquo;: pending dipasang begitu
+    pola sah close. Karena pola mensyaratkan close S di atas <i>wick</i> S&minus;1, body S&minus;1 otomatis
+    sudah terlampaui, sehingga break body umumnya kena di awal candle S+1 dan entry tinggal menunggu harga
+    naik 0.10&middot;ATR di atas wick S&minus;1.
+  </p>
+</div>
+
 <h2>1. Timeline satu setup BUY (dari pola sampai TP)</h2>
 <div class="card">
 <svg viewBox="0 0 1180 560" role="img" aria-label="Timeline alert BREAK BODY, ENTRY dan TP HIT">
