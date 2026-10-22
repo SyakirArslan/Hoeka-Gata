@@ -95,9 +95,6 @@ void CreateControlPanel()
       row += PANEL_ROW_HEIGHT;
       CreateLabel("LBL_SELL_ENABLED", labelX, row + 3, "Sell", PANEL_TEXT, 8);
       CreateButton("BTN_SELL", valueX, row, 52, 20, FormatBool(g_allowSell));
-      row += PANEL_ROW_HEIGHT;
-      CreateLabel("LBL_EXTEND_TP", labelX, row + 3, "Extend TP", PANEL_TEXT, 8);
-      CreateButton("BTN_EXTEND_TP", valueX, row, 52, 20, FormatBool(g_useExtendTP));
 
       statusY = tradeY + tradeH + 10;
    }
@@ -184,7 +181,6 @@ void UpdateControlPanel()
    SetObjectText("BTN_SPREAD_FILTER", FormatBool(g_useSpreadFilter));
    SetObjectText("BTN_BUY", FormatBool(g_allowBuy));
    SetObjectText("BTN_SELL", FormatBool(g_allowSell));
-   SetObjectText("BTN_EXTEND_TP", FormatBool(g_useExtendTP));
    SetObjectText("BTN_CLOSED_BAR", FormatBool(g_useClosedBarSignal));
    SetObjectText("BTN_RECALC_SLTP", FormatBool(g_recalculateSLTPFromActualEntry));
    SetObjectText("TITLE", g_panelMinimized ? "HoekaGata" : "HoekaGata Control");
@@ -204,7 +200,6 @@ void UpdateControlPanel()
    SetToggleStyle("BTN_SPREAD_FILTER", g_useSpreadFilter);
    SetToggleStyle("BTN_BUY", g_allowBuy);
    SetToggleStyle("BTN_SELL", g_allowSell);
-   SetToggleStyle("BTN_EXTEND_TP", g_useExtendTP);
    SetToggleStyle("BTN_CLOSED_BAR", g_useClosedBarSignal);
    SetToggleStyle("BTN_RECALC_SLTP", g_recalculateSLTPFromActualEntry);
 
@@ -309,8 +304,6 @@ void HandlePanelClick(const string name)
       g_allowBuy = !g_allowBuy;
    else if(name == Obj("BTN_SELL"))
       g_allowSell = !g_allowSell;
-   else if(name == Obj("BTN_EXTEND_TP"))
-      g_useExtendTP = !g_useExtendTP;
    else if(name == Obj("BTN_CLOSED_BAR"))
       g_useClosedBarSignal = !g_useClosedBarSignal;
    else if(name == Obj("BTN_RECALC_SLTP"))

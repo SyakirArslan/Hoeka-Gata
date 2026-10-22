@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Engulfing Breakout - Panel Mockup (1:1 with MQL5 geometry)</title>
+<style>
+  /* ------------------------------------------------------------------
+     Every number below is imported 1:1 from HoekaGataIndicator_Panel.mqh
+       PANEL_PANEL_W   = 180      PANEL_PAD_X     = 20
+       PANEL_PAD_Y     = 10       PANEL_MARGIN_X  = 12
+       PANEL_MARGIN_Y  = 12       PANEL_LINE_H    = 16
+       PANEL_FONT_BODY = 8pt      PANEL_FONT_HEAD = 9pt
+       PANEL_SUBTITLE_GAP = 6     PANEL_SECTION_GAP = 4
+       PANEL_BORDER    = rgb(70,70,70)
+       PANEL_HEADER    = rgb(255,255,255)
+       PANEL_RULE      = rgb(70,70,70)
+       height = 10*2 + 13*16 + 6 + 4 = 238
+       footer = separate 180x20 box, 6px below the panel
+     ------------------------------------------------------------------ */
+
+  :root {
+    --panel-w:    180px;
+    --pad-x:      20px;
+    --pad-y:      10px;
+    --margin-x:   12px;
+    --margin-y:   12px;
+    --line-h:     16px;
+    --font-body:  8pt;
+    --font-head:  9pt;
+    --c-border:   rgb(70,70,70);       /* dark grey grid lines */
+    --c-header:   rgb(255,255,255);    /* white headers */
+    --c-rule:     rgb(70,70,70);
+    --c-text:     rgb(255,255,255);    /* white general text */
+    --c-bg:       #0b0b0b;             /* solid near-black panel */
+    --c-buy:      #26a69a;             /* teal/cyan */
+    --c-sell:     #ef5350;             /* red */
+    --c-highlight: #ffeb3b;            /* yellow highlight for the key number */
+    --c-highlight-bg: rgba(255,235,59,0.10);
+  }
+
+  body {
+    margin: 0;
+    padding: 40px;
+    background: #1e1e1e;            /* dark chart theme */
+    font-family: Arial, Helvetica, sans-serif;
+    color: #ccc;
+  }
+
+  /* Grid overlay so the panel can be measured in the browser. */
+  .stage {
+    position: relative;
+    width: 420px;
+    height: 340px;
+    background:
+      repeating-linear-gradient(to right,  #2a2a2a 0 1px, transparent 1px 20px),
+      repeating-linear-gradient(to bottom, #2a2a2a 0 1px, transparent 1px 20px),
+      #232323;
+    border: 1px dashed #444;
+  }
+
+  .corner-tag {
+    position: absolute;
+    top: 2px; right: 4px;
+    font-size: 9px;
+    color: #666;
+  }
+
+  /* ---------------- the panel itself ---------------- */
+  .panel {
+    position: absolute;
+    top: var(--margin-y);
+    right: var(--margin-x);
+    width: var(--panel-w);
+    /* 10 top + (16+6 subtitle) + 12*16 rows + 4px section gap + 10 bottom = 238 */
+    height: calc(var(--pad-y) * 2 + 13 * var(--line-h) + 6px + 4px);
+    box-sizing: border-box;
+    /* no background: transparent, only the 4 frame bars are drawn */
+  }
+
+  /* Probability: its own framed row BELOW the panel, 6px gap from the panel. */
+  .prob-below {
+    position: absolute;
+    right: var(--margin-x);
+    top: calc(var(--margin-y) + var(--pad-y) * 2 + 13 * var(--line-h) + 6px + 4px + 6px);
+    width: var(--panel-w);
+    box-sizing: border-box;
+    text-align: center;
+    font-size: var(--font-head);
+    font-weight: bold;
+    color: var(--c-text);
+    letter-spacing: 0.3px;
+    border: 1px solid var(--c-border);
+    /* 1px frame + 3px pad + 12px text + 3px pad + 1px frame = 20px */
+    height: 20px;
+    line-height: 12px;
+    padding: 3px 0;
+  }
+
+  /* Frame = 4 independent 1px bars, same as EngulfPanelBar().
+     Horizontal bars are full width (including both corner pixels);
+     vertical bars span the interior height only, so each corner pixel
+     is painted exactly once. */
+  .bar          { position: absolute; background: var(--c-border); }
+  .bar.top      { top: 0;    left: 0;   right: 0; height: 1px; }
+  .bar.bottom   { bottom: 0; left: 0;   right: 0; height: 1px; }
+  .bar.left     { top: 1px;  bottom: 1px; left: 0;  width: 1px; }
+  .bar.right    { top: 1px;  bottom: 1px; right: 0; width: 1px; }
+
+  /* Rows sit inside the padding and stack at exactly 18px pitch. */
+  .rows {
+    position: absolute;
+    top: var(--pad-y);
+    left: var(--pad-x);
+    right: var(--pad-x);
+  }
+
+  .row {
+    position: relative;
+    height: var(--line-h);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: var(--font-body);
+    line-height: var(--line-h);
+    color: var(--c-text);
+  }
+
+  .row .label { text-align: left; }
+  .row .value { text-align: right; }
+
+  /* Merged rows: title, subtitle, section headers, footer. */
+  .row.center  { justify-content: center; text-align: center; }
+  .row.title   { font-size: var(--font-head); }
+  .row.subtitle {
+    height: calc(var(--line-h) + 6px);   /* taller row => gap between text and rule */
+    border-bottom: 1px solid var(--c-rule);
+    box-sizing: border-box;
+  }
+  .row.subtitle,
+  .row.section,
+  .row.title   { color: var(--c-text); }
+
+  /* Extra space between the author rule and the SETUP header. */
+  .section-gap-top { margin-top: 4px; }
+
+  .v-buy     { color: var(--c-buy); }
+  .v-sell    { color: var(--c-sell); }
+  .v-neutral { color: #9e9e9e; }   /* greyish-white, matches Status NONE */
+
+  /* Footer "Probability" row: same size/weight as the RESULTS section header,
+     no frame or background (clean, centred key result). */
+  .row.key {
+    font-size: var(--font-head);
+    font-weight: bold;
+    color: var(--c-text);
+    letter-spacing: 0.3px;
+  }
+
+  /* ---------------- spec sheet ---------------- */
+  .specs {
+    margin-top: 28px;
+    font-size: 12px;
+    border-collapse: collapse;
+    color: #bbb;
+  }
+  .specs th, .specs td {
+    border: 1px solid #3a3a3a;
+    padding: 4px 10px;
+    text-align: left;
+  }
+  .specs th { background: #2c2c2c; color: #ddd; }
+  .specs code { color: #9cdcfe; }
+  h2 { font-size: 14px; color: #ddd; margin: 0 0 14px; font-weight: normal; }
+</style>
+</head>
+<body>
+<h2>Engulfing Breakout &mdash; panel mockup (1:1 with MQL5 geometry)</h2>
+
+<div class="stage">
+  <span class="corner-tag">chart top-right corner</span>
+
+  <!-- Title is the first row INSIDE the frame (white, centered). -->
+  <div class="panel">
+    <div class="bar top"></div>
+    <div class="bar bottom"></div>
+    <div class="bar left"></div>
+    <div class="bar right"></div>
+
+    <div class="rows">
+
+      <!-- row 0 : title -->
+      <div class="row center title">
+        <span>Engulfing Breakout</span>
+      </div>
+
+      <!-- row 1 : author -->
+      <div class="row center subtitle">
+        <span>by Syakir Arslan</span>
+      </div>
+
+      <!-- row 2 -->
+      <div class="row center section section-gap-top">
+        <span>SETUP</span>
+      </div>
+
+      <!-- row 3 -->
+      <div class="row">
+        <span class="label">R:R</span>
+        <span class="value">1:2</span>
+      </div>
+
+      <!-- row 4 -->
+      <div class="row">
+        <span class="label">Status</span>
+        <span class="value v-neutral">NONE</span>
+      </div>
+
+      <!-- row 5 -->
+      <div class="row">
+        <span class="label">Cancel</span>
+        <span class="value">7</span>
+      </div>
+
+      <!-- row 6 -->
+      <div class="row center section">
+        <span>RESULTS</span>
+      </div>
+
+      <!-- row 7 -->
+      <div class="row">
+        <span class="label">Signals</span>
+        <span class="value">407</span>
+      </div>
+
+      <!-- row 8 -->
+      <div class="row">
+        <span class="label">Runs</span>
+        <span class="value">383</span>
+      </div>
+
+      <!-- row 9 -->
+      <div class="row">
+        <span class="label">Buy %</span>
+        <span class="value v-buy">68.25% (189)</span>
+      </div>
+
+      <!-- row 10 -->
+      <div class="row">
+        <span class="label">Sell %</span>
+        <span class="value v-sell">71.13% (194)</span>
+      </div>
+
+      <!-- row 11 -->
+      <div class="row">
+        <span class="label">TP Streak</span>
+        <span class="value v-buy">13</span>
+      </div>
+
+      <!-- row 12 -->
+      <div class="row">
+        <span class="label">SL Streak</span>
+        <span class="value v-sell">4</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Probability: separate row BELOW the panel (outside the frame). -->
+  <div class="prob-below">
+    <span>Probability: 69.71%</span>
+  </div>
+</div>
+
+<table class="specs">
+  <tr><th>Element</th><th>Value</th><th>Source</th></tr>
+  <tr><td>Panel width</td><td>180 px</td><td><code>PANEL_PANEL_W</code></td></tr>
+  <tr><td>Panel height</td><td>238 px = 10&times;2 + 13&times;16 + 6 + 4</td><td><code>EngulfPanelHeight()</code></td></tr>
+  <tr><td>Row pitch</td><td>16 px &times; 13 rows</td><td><code>PANEL_LINE_H</code></td></tr>
+  <tr><td>Padding</td><td>20 px horizontal / 10 px vertical</td><td><code>PANEL_PAD_X</code> / <code>PANEL_PAD_Y</code></td></tr>
+  <tr><td>Chart offset</td><td>12 px from right, 12 px from top</td><td><code>PANEL_MARGIN_X</code> / <code>PANEL_MARGIN_Y</code></td></tr>
+  <tr><td>Body font</td><td>8 pt</td><td><code>PANEL_FONT_BODY</code></td></tr>
+  <tr><td>Title font</td><td>9 pt</td><td><code>PANEL_FONT_HEAD</code></td></tr>
+  <tr><td>Text baseline</td><td>11 px text centred in the 16 px slot (+2 px)</td><td><code>PANEL_TEXT_DY</code></td></tr>
+  <tr><td>Centred rows</td><td>h-centre + v-top, never <code>ANCHOR_CENTER</code></td><td><code>ANCHOR_UPPER</code></td></tr>
+  <tr><td>Frame</td><td>rgb(70,70,70), 1 px, 4 separate bars</td><td><code>PANEL_BORDER</code> / <code>EngulfPanelBar()</code></td></tr>
+  <tr><td>Rectangle XDISTANCE</td><td>distance to the <b>left</b> edge &mdash; i.e. <code>xRight + w</code>, not <code>xRight</code></td><td><code>OBJ_RECTANGLE_LABEL</code> anchor is fixed to <code>ANCHOR_LEFT_UPPER</code></td></tr>
+  <tr><td>Row rules</td><td>exactly 1 rule, under the byline only</td><td><code>EngulfPanelRule(PANEL_ROW_SUBTITLE)</code></td></tr>
+  <tr><td>Title / header</td><td>white, centred, inside frame (row 0)</td><td>title is a row, not a caption</td></tr>
+  <tr><td>R:R value</td><td><code>1:2</code> &mdash; trailing zeros dropped</td><td><code>EngulfFormatRatio()</code></td></tr>
+  <tr><td>Probability footer</td><td>180 &times; 20 framed box, 6 px below the panel</td><td><code>EngulfPanelFooter()</code> / <code>PANEL_FOOTER_H</code></td></tr>
+  <tr><td>Accents</td><td>Buy/TP cyan, Sell/SL red, Status NONE grey</td><td><code>InpCBuyText</code> / <code>InpCSellText</code></td></tr>
+  <tr><td>Background</td><td>transparent &mdash; no fill object</td><td>frame bars only</td></tr>
+  <tr><td>Scalable</td><td>no &mdash; panel is locked to 180 px, <code>InpPanelSize</code> only affects chart SL/TP labels</td><td><code>PANEL_*</code> constants</td></tr>
+  <tr><td>Corner handling</td><td>horizontal bars full width; vertical bars inner height only</td><td>each corner pixel painted once</td></tr>
+</table>
+
+</body>
+</html>

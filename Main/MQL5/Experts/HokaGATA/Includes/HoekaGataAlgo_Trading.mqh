@@ -333,14 +333,12 @@ bool ReadPublishedSignalAtShift(const int shift, int &direction, double &entry, 
    string entryKey = SignalKey(slot + "_E");
    string slKey = SignalKey(slot + "_SL");
    string tpKey = SignalKey(slot + "_TP");
-   string extendTPKey = SignalKey(slot + "_TX");
 
    if(!GlobalVariableCheck(timeKey) ||
       !GlobalVariableCheck(directionKey) ||
       !GlobalVariableCheck(entryKey) ||
       !GlobalVariableCheck(slKey) ||
-      !GlobalVariableCheck(tpKey) ||
-      !GlobalVariableCheck(extendTPKey))
+      !GlobalVariableCheck(tpKey))
       return false;
 
    datetime expectedTime = iTime(_Symbol, _Period, shift);
@@ -354,7 +352,7 @@ bool ReadPublishedSignalAtShift(const int shift, int &direction, double &entry, 
 
    entry = GlobalVariableGet(entryKey);
    sl = GlobalVariableGet(slKey);
-   tp = g_useExtendTP ? GlobalVariableGet(extendTPKey) : GlobalVariableGet(tpKey);
+   tp = GlobalVariableGet(tpKey);
    if(!IsValidSignalValue(entry) || !MathIsValidNumber(sl) || !MathIsValidNumber(tp))
    {
       direction = 0;
@@ -375,13 +373,11 @@ bool ReadSignalFromIndicatorHandle(const int shift, int &direction, double &entr
    double sellBuffer[1];
    double slBuffer[1];
    double tpBuffer[1];
-   double extendTPBuffer[1];
 
    if(CopyBuffer(g_indicatorHandle, 0, shift, 1, buyBuffer) <= 0 ||
       CopyBuffer(g_indicatorHandle, 1, shift, 1, sellBuffer) <= 0 ||
       CopyBuffer(g_indicatorHandle, 2, shift, 1, slBuffer) <= 0 ||
-      CopyBuffer(g_indicatorHandle, 3, shift, 1, tpBuffer) <= 0 ||
-      CopyBuffer(g_indicatorHandle, 4, shift, 1, extendTPBuffer) <= 0)
+      CopyBuffer(g_indicatorHandle, 3, shift, 1, tpBuffer) <= 0)
    {
       ReleaseIndicatorHandle();
       return false;
@@ -395,7 +391,7 @@ bool ReadSignalFromIndicatorHandle(const int shift, int &direction, double &entr
    direction = hasBuy ? 1 : -1;
    entry = hasBuy ? buyBuffer[0] : sellBuffer[0];
    sl = slBuffer[0];
-   tp = g_useExtendTP ? extendTPBuffer[0] : tpBuffer[0];
+   tp = tpBuffer[0];
    return true;
 }
 
@@ -409,30 +405,63 @@ double CurrentMarketEntryPrice(const int direction)
    return direction == 1 ? SymbolInfoDouble(_Symbol, SYMBOL_ASK) : SymbolInfoDouble(_Symbol, SYMBOL_BID);
 }
 
+// Keeps SL/TP proportional when the real fill differs from the signal entry,
+// so the Risk:Reward stays identical to what the indicator proposed.
+// (Engulfing Breakout uses a fixed R:R target - there is no Fibonacci here.)
 bool RecalculateSLTPFromActualEntry(const int direction, const double signalEntry, const double signalTP, const double actualEntry, double &sl, double &tp)
 {
    if(!IsValidSignalValue(signalEntry) || !MathIsValidNumber(signalTP) || !MathIsValidNumber(actualEntry) || actualEntry <= 0.0)
       return false;
 
-   double tpLevel = g_useExtendTP ? 0.786 : 0.618;
-   double anchorP2 = signalEntry + (signalTP - signalEntry) / tpLevel;
-   if(!MathIsValidNumber(anchorP2) || anchorP2 <= 0.0)
+   // Recover the original SL from the signal via the R:R ratio it was built with.
+   double rr = RiskRewardRatioFromSignal(direction, signalEntry, signalTP);
+   if(!MathIsValidNumber(rr) || rr <= 0.0)
       return false;
 
-   double range = anchorP2 - actualEntry;
-   sl = actualEntry + range * -0.270;
-   tp = actualEntry + range * tpLevel;
-
-   if(!MathIsValidNumber(sl) || !MathIsValidNumber(tp))
+   double slFromSignal = g_lastSignalSL;
+   if(!MathIsValidNumber(slFromSignal) || slFromSignal <= 0.0)
       return false;
 
+   double riskDistance = MathAbs(signalEntry - slFromSignal);
+   if(riskDistance <= 0.0)
+      return false;
+
+   // Shift SL to the actual fill, preserving the original risk distance,
+   // then rebuild TP from the same R:R ratio.
    if(direction == 1)
-      return sl < actualEntry && tp > actualEntry;
+   {
+      sl = actualEntry - riskDistance;
+      tp = actualEntry + rr * riskDistance;
+      if(sl >= actualEntry || tp <= actualEntry)
+         return false;
+   }
+   else
+   {
+      sl = actualEntry + riskDistance;
+      tp = actualEntry - rr * riskDistance;
+      if(sl <= actualEntry || tp >= actualEntry)
+         return false;
+   }
 
-   if(direction == -1)
-      return sl > actualEntry && tp < actualEntry;
+   return MathIsValidNumber(sl) && MathIsValidNumber(tp);
+}
 
-   return false;
+// Derives the Risk:Reward ratio that the indicator used for this signal.
+double RiskRewardRatioFromSignal(const int direction, const double entry, const double tp)
+{
+   double sl = g_lastSignalSL;
+   if(!MathIsValidNumber(sl) || sl <= 0.0)
+      return 0.0;
+
+   double risk = MathAbs(entry - sl);
+   if(risk <= 0.0)
+      return 0.0;
+
+   double reward = MathAbs(tp - entry);
+   if(reward <= 0.0)
+      return 0.0;
+
+   return reward / risk;
 }
 
 double CalculateRiskLot(const int direction, const double signalEntry, const double signalSL, const double signalTP)

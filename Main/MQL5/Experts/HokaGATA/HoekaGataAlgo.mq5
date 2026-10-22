@@ -9,7 +9,6 @@
 input bool   InpAlgoEnabled         = false;
 input bool   InpAllowBuy            = true;
 input bool   InpAllowSell           = true;
-input bool   InpUseExtendTP         = false;
 input double InpRiskBuyPercent      = 5;
 input double InpRiskSellPercent     = 5;
 input bool   InpUseTradingTime      = false;
@@ -54,7 +53,6 @@ string   g_indicatorShortName = "";
 bool     g_algoEnabled;
 bool     g_allowBuy;
 bool     g_allowSell;
-bool     g_useExtendTP;
 bool     g_useTradingTime;
 bool     g_useSpreadFilter;
 bool     g_useClosedBarSignal;
@@ -103,7 +101,6 @@ int OnInit()
    g_algoEnabled = InpAlgoEnabled;
    g_allowBuy = InpAllowBuy;
    g_allowSell = InpAllowSell;
-   g_useExtendTP = InpUseExtendTP;
    g_useTradingTime = InpUseTradingTime;
    g_useSpreadFilter = InpUseSpreadFilter;
    g_useClosedBarSignal = InpUseClosedBarSignal;

@@ -49,7 +49,6 @@ void LoadPanelConfig()
 {
    g_allowBuy = ReadConfigBool("AllowBuy", g_allowBuy);
    g_allowSell = ReadConfigBool("AllowSell", g_allowSell);
-   g_useExtendTP = ReadConfigBool("UseExtendTP", g_useExtendTP);
    g_useTradingTime = ReadConfigBool("UseTradingTime", g_useTradingTime);
    g_useSpreadFilter = ReadConfigBool("UseSpreadFilter", g_useSpreadFilter);
    g_useClosedBarSignal = ReadConfigBool("UseClosedBarSignal", g_useClosedBarSignal);
@@ -74,7 +73,6 @@ void SavePanelConfig()
 {
    WriteConfigBool("AllowBuy", g_allowBuy);
    WriteConfigBool("AllowSell", g_allowSell);
-   WriteConfigBool("UseExtendTP", g_useExtendTP);
    WriteConfigBool("UseTradingTime", g_useTradingTime);
    WriteConfigBool("UseSpreadFilter", g_useSpreadFilter);
    WriteConfigBool("UseClosedBarSignal", g_useClosedBarSignal);

@@ -1,206 +1,56 @@
-// HokaGATA Wave 3 MT5
-// Included by HoekaGataIndicator.mq5.
+// HokaGATA Engulfing Breakout MT5
+// Drawing helpers: Entry / SL / TP / Body-Break lines and labels.
+// Mirrors .pine: CREATE NEW SETUP / EXTEND ACTIVE SETUP / FREEZE COMPLETED SETUP.
 
-void Draw03Down(const int i0, const double p0, const int i1, const double p1, const int i2, const double p2, const int i3, const double p3, const bool showNeg027, const int rates_total, const datetime &time[])
+struct EngulfSetup
 {
-   if(!InpEnableDrawing)
-      return;
+   int    dir;
+   int    setupBar;
+   int    entryBar;
+   double pBreak;
+   double pEntry;
+   double pSL;
+   double pTP;
+   string lnE;
+   string lnS;
+   string lnT;
+   string lbE;
+   string lbS;
+   string lbT;
+   string lnBody;
+   string lbBody;
+};
 
-   if(InpDisplayMode == DisplayLatestOnly)
-      DeleteObjectsByPrefix(PREFIX);
-
-   if(InpShowWaveLines)
-   {
-      DrawLine("SEG_" + IntegerToString(i0) + "_" + IntegerToString(i1), i0, p0, i1, p1, InpDownColor, STYLE_SOLID, rates_total, time);
-      DrawLine("SEG_" + IntegerToString(i1) + "_" + IntegerToString(i2), i1, p1, i2, p2, InpDownColor, STYLE_SOLID, rates_total, time);
-      DrawLine("SEG_" + IntegerToString(i2) + "_" + IntegerToString(i3), i2, p2, i3, p3, InpDownColor, STYLE_SOLID, rates_total, time);
-   }
-
-   DrawParallelTrendlines(i0, p0, i1, p1, i2, p2, i3, p3, i3, rates_total, time);
-   DrawWave2Zone(i0, i1, i2, p0, p1, true, rates_total, time);
-   DrawEntryFib(i1, i3, p1, p2, true, rates_total, time);
-   DrawEntryTriggerFib(i1, i3, p1, p2, true, rates_total, time);
-   if(InpShowEntryPriceLine)
-      DrawEntryPriceLine(i3, p3, true, rates_total, time);
-   if(showNeg027)
-      DrawWave3Neg027(i2, i3, p2, p3, true, rates_total, time);
-   DrawWave4ZoneRight(i2, i3, p2, p3, true, rates_total, time);
-
-   if(InpShowWaveLabels)
-   {
-      DrawText("WAVE_0_" + IntegerToString(i0), i0, p0, "0", InpNormalLabelColor, rates_total, time);
-      DrawText("WAVE_1_" + IntegerToString(i1), i1, p1, "1", InpNormalLabelColor, rates_total, time);
-      DrawText("WAVE_2_" + IntegerToString(i2), i2, p2, "2", InpNormalLabelColor, rates_total, time);
-   }
+ENUM_LINE_STYLE EngulfLineStyle()
+{
+   return InpLineStyle == LineSolid ? STYLE_SOLID : STYLE_DASH;
 }
 
-void Draw03Up(const int i0, const double p0, const int i1, const double p1, const int i2, const double p2, const int i3, const double p3, const bool showNeg027, const int rates_total, const datetime &time[])
+ENUM_LINE_STYLE EngulfBodyBreakStyle()
 {
-   if(!InpEnableDrawing)
-      return;
-
-   if(InpDisplayMode == DisplayLatestOnly)
-      DeleteObjectsByPrefix(PREFIX);
-
-   if(InpShowWaveLines)
-   {
-      DrawLine("SEG_" + IntegerToString(i0) + "_" + IntegerToString(i1), i0, p0, i1, p1, InpUpColor, STYLE_SOLID, rates_total, time);
-      DrawLine("SEG_" + IntegerToString(i1) + "_" + IntegerToString(i2), i1, p1, i2, p2, InpUpColor, STYLE_SOLID, rates_total, time);
-      DrawLine("SEG_" + IntegerToString(i2) + "_" + IntegerToString(i3), i2, p2, i3, p3, InpUpColor, STYLE_SOLID, rates_total, time);
-   }
-
-   DrawParallelTrendlines(i0, p0, i1, p1, i2, p2, i3, p3, i3, rates_total, time);
-   DrawWave2Zone(i0, i1, i2, p0, p1, false, rates_total, time);
-   DrawEntryFib(i1, i3, p1, p2, false, rates_total, time);
-   DrawEntryTriggerFib(i1, i3, p1, p2, false, rates_total, time);
-   if(InpShowEntryPriceLine)
-      DrawEntryPriceLine(i3, p3, false, rates_total, time);
-   if(showNeg027)
-      DrawWave3Neg027(i2, i3, p2, p3, false, rates_total, time);
-   DrawWave4ZoneRight(i2, i3, p2, p3, false, rates_total, time);
-
-   if(InpShowWaveLabels)
-   {
-      DrawText("WAVE_0_" + IntegerToString(i0), i0, p0, "0", InpNormalLabelColor, rates_total, time);
-      DrawText("WAVE_1_" + IntegerToString(i1), i1, p1, "1", InpNormalLabelColor, rates_total, time);
-      DrawText("WAVE_2_" + IntegerToString(i2), i2, p2, "2", InpNormalLabelColor, rates_total, time);
-   }
+   if(InpBodyBreakStyle == BodyBreakDotted)
+      return STYLE_DOT;
+   if(InpBodyBreakStyle == BodyBreakDashed)
+      return STYLE_DASH;
+   return STYLE_SOLID;
 }
 
-void DrawParallelTrendlines(const int i0, const double p0, const int i1, const double p1, const int i2, const double p2, const int i3, const double p3, const int endX, const int rates_total, const datetime &time[])
+// .pine: labelSize = Tiny/Small/Normal/Large -> size.tiny/small/normal/large
+int EngulfFontSize(const EngulfLabelSize size)
 {
-   if(!InpShowTrendLines)
-      return;
-
-   double y02End = ProjectY(i0, p0, i2, p2, endX);
-   double y13End = ProjectY(i1, p1, i3, p3, endX);
-   DrawLine("TL02_" + IntegerToString(i0) + "_" + IntegerToString(i2), i0, p0, endX, y02End, InpNeutralColor, STYLE_SOLID, rates_total, time);
-   DrawLine("TL13_" + IntegerToString(i1) + "_" + IntegerToString(i3), i1, p1, endX, y13End, InpNeutralColor, STYLE_SOLID, rates_total, time);
+   if(size == EngulfTiny)
+      return 7;
+   if(size == EngulfNormal)
+      return 11;
+   if(size == EngulfLarge)
+      return 14;
+   return 9;
 }
 
-void DrawWave2Zone(const int i0, const int i1, const int i2, const double p0, const double p1, const bool isDowntrend, const int rates_total, const datetime &time[])
+// Maps bar index to chart time; future bars are extrapolated.
+datetime EngulfTimeAt(const datetime &time[], const int rates_total, const int index)
 {
-   if(!InpShowFibLines)
-      return;
-
-   double fib618 = FibPrice(p0, p1, WAVE2_FIB_LEVEL);
-   double fib50 = FibPrice(p0, p1, WAVE2_FIB_LEVEL2);
-   string key = IntegerToString(i0) + "_" + IntegerToString(i1);
-   DrawLine("FIB2_0618_LINE_" + key, i0, fib618, i2, fib618, InpWave2FibColor, STYLE_DASH, rates_total, time);
-   DrawLine("FIB2_050_LINE_" + key, i0, fib50, i2, fib50, InpWave2FibColor, STYLE_DASH, rates_total, time);
-
-   int labelX = (int)MathRound((i0 + i2) / 2.0);
-   double labelY = (fib50 + fib618) / 2.0;
-   DrawText("FIB2_ZONE_LABEL_" + key, labelX, labelY, InpPublicZoneLabels ? "Confirm Zone" : "0.5 - 0.618", InpNormalLabelColor, rates_total, time);
-}
-
-void DrawEntryFib(const int i1, const int i3, const double p1, const double p2, const bool isDowntrend, const int rates_total, const datetime &time[])
-{
-   if(!InpShowFibLines || !InpShowEntryFib1618)
-      return;
-
-   double fib1618 = Entry1618Price(p1, p2);
-   int labelX = (int)MathRound((i1 + i3) / 2.0);
-   double labelY = fib1618 + (isDowntrend ? LabelOffset(p2) : -LabelOffset(p2));
-   string directionKey = isDowntrend ? "D_" : "U_";
-   DrawLine("FIB3_LINE_" + directionKey + IntegerToString(i3), i1, fib1618, i3, fib1618, InpFib1618Color, STYLE_DASH, rates_total, time);
-   DrawText("FIB3_LABEL_" + directionKey + IntegerToString(i3), labelX, labelY, (InpPublicZoneLabels ? "Area Fibo 1.618 - " : "1.618\n") + PriceText(fib1618), InpNormalLabelColor, rates_total, time);
-}
-
-void DrawEntryTriggerFib(const int i1, const int i3, const double p1, const double p2, const bool isDowntrend, const int rates_total, const datetime &time[])
-{
-   if(!InpShowFibLines || !InpUseEntryFibBarrier)
-      return;
-
-   double triggerPrice = EntryTriggerPrice(p1, p2);
-   int labelX = (int)MathRound((i1 + i3) / 2.0);
-   double labelY = triggerPrice + (isDowntrend ? LabelOffset(p2) : -LabelOffset(p2));
-   string directionKey = isDowntrend ? "D_" : "U_";
-   string triggerText = "TRIGGER " + DoubleToString(InpEntryTriggerFibLevel, 3) + "\n" + PriceText(triggerPrice);
-
-   DrawLine("ENTRY_TRIGGER_LINE_" + directionKey + IntegerToString(i3), i1, triggerPrice, i3, triggerPrice, InpFib1618Color, STYLE_DASH, rates_total, time);
-   DrawText("ENTRY_TRIGGER_LABEL_" + directionKey + IntegerToString(i3), labelX, labelY, triggerText, InpNormalLabelColor, rates_total, time);
-}
-
-void DrawWave3Neg027(const int i2, const int i3, const double p2, const double p3, const bool isDowntrend, const int rates_total, const datetime &time[])
-{
-   if(!InpShowFibLines)
-      return;
-
-   double fibNeg027 = Wave3Neg027Price(p2, p3);
-   int endX = i3 + 30;
-   int labelX = i3 + 26;
-   double labelY = isDowntrend ? fibNeg027 - LabelOffset(p3) : fibNeg027 + LabelOffset(p3);
-   string directionKey = isDowntrend ? "D_" : "U_";
-   DrawLine("FIB3_NEG027_LINE_" + directionKey + IntegerToString(i3), i3, fibNeg027, endX, fibNeg027, InpTargetFibColor, STYLE_DASH, rates_total, time);
-   DrawText("FIB3_NEG027_LABEL_" + directionKey + IntegerToString(i3), labelX, labelY, (InpPublicZoneLabels ? "SL - " : "-0.27\n") + PriceText(fibNeg027), InpNormalLabelColor, rates_total, time);
-}
-
-void DrawWave4ZoneRight(const int i2, const int i3, const double p2, const double p3, const bool isDowntrend, const int rates_total, const datetime &time[])
-{
-   if(!InpShowFibLines)
-      return;
-
-   double fib4A = Wave4FibPrice(p2, p3);
-   double fib4B = Wave4Fib2Price(p2, p3);
-   int endX = i3 + 30;
-   int labelX = i3 + 26;
-   double labelYA = isDowntrend ? fib4A + LabelOffset(p3) : fib4A - LabelOffset(p3);
-   double labelYB = isDowntrend ? fib4B + LabelOffset(p3) : fib4B - LabelOffset(p3);
-   string directionKey = isDowntrend ? "D_" : "U_";
-   string waveKey = directionKey + IntegerToString(i2);
-
-   DrawLine("FIB4R_0618_LINE_" + waveKey, i3, fib4A, endX, fib4A, InpTargetFibColor, STYLE_DASH, rates_total, time);
-   DrawLine("FIB4R_0786_LINE_" + waveKey, i3, fib4B, endX, fib4B, InpTargetFibColor, STYLE_DASH, rates_total, time);
-   DrawText("FIB4R_0618_LABEL_" + waveKey, labelX, labelYA, (InpPublicZoneLabels ? "TP - " : "0.618\n") + PriceText(fib4A), InpNormalLabelColor, rates_total, time);
-   DrawText("FIB4R_0786_LABEL_" + waveKey, labelX, labelYB, (InpPublicZoneLabels ? "Extend TP - " : "0.786\n") + PriceText(fib4B), InpNormalLabelColor, rates_total, time);
-}
-
-void DrawEntryPriceLine(const int i3, const double entryPrice, const bool isDowntrend, const int rates_total, const datetime &time[])
-{
-   int endX = i3 + 30;
-   int labelX = i3 + 22;
-   string directionKey = isDowntrend ? "D_" : "U_";
-   color entryColor = isDowntrend ? InpEntryBuyColor : InpEntrySellColor;
-   string entryText = (isDowntrend ? "Buy - " : "Sell - ") + PriceText(entryPrice);
-   double labelY = entryPrice + (isDowntrend ? LabelOffset(entryPrice) : -LabelOffset(entryPrice));
-   DrawLine("ENTRY_PRICE_LINE_" + directionKey + IntegerToString(i3), i3, entryPrice, endX, entryPrice, entryColor, STYLE_SOLID, rates_total, time);
-   DrawText("ENTRY_PRICE_LABEL_" + directionKey + IntegerToString(i3), labelX, labelY, entryText, InpNormalLabelColor, rates_total, time);
-}
-
-void DrawLine(const string key, const int x1, const double y1, const int x2, const double y2, const color clr, const ENUM_LINE_STYLE style, const int rates_total, const datetime &time[])
-{
-   string name = PREFIX + key;
-   if(ObjectFind(0, name) >= 0)
-      ObjectDelete(0, name);
-
-   ObjectCreate(0, name, OBJ_TREND, 0, TimeAt(time, rates_total, x1), y1, TimeAt(time, rates_total, x2), y2);
-   ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
-   ObjectSetInteger(0, name, OBJPROP_STYLE, style);
-   ObjectSetInteger(0, name, OBJPROP_WIDTH, InpDrawingLineWidth > 1 ? InpDrawingLineWidth : 1);
-   ObjectSetInteger(0, name, OBJPROP_RAY_RIGHT, false);
-   ObjectSetInteger(0, name, OBJPROP_RAY_LEFT, false);
-   ObjectSetInteger(0, name, OBJPROP_BACK, false);
-}
-
-void DrawText(const string key, const int index, const double price, const string text, const color clr, const int rates_total, const datetime &time[])
-{
-   string name = PREFIX + key;
-   if(ObjectFind(0, name) >= 0)
-      ObjectDelete(0, name);
-
-   ObjectCreate(0, name, OBJ_TEXT, 0, TimeAt(time, rates_total, index), price);
-   ObjectSetString(0, name, OBJPROP_TEXT, text);
-   ObjectSetString(0, name, OBJPROP_FONT, "Arial");
-   ObjectSetInteger(0, name, OBJPROP_FONTSIZE, 8);
-   ObjectSetInteger(0, name, OBJPROP_COLOR, clr == clrNONE ? InpNeutralColor : clr);
-   ObjectSetInteger(0, name, OBJPROP_ANCHOR, ANCHOR_CENTER);
-   ObjectSetInteger(0, name, OBJPROP_BACK, false);
-}
-
-datetime TimeAt(const datetime &time[], const int rates_total, const int index)
-{
-   if(index <= 0)
+   if(index < 0)
       return time[0];
 
    if(index < rates_total)
@@ -210,30 +60,100 @@ datetime TimeAt(const datetime &time[], const int rates_total, const int index)
    if(sec <= 0)
       sec = 60;
 
-   return (datetime)(time[rates_total - 1] + (index - (rates_total - 1)) * sec);
+   return (datetime)(time[rates_total - 1] + (long)(index - (rates_total - 1)) * sec);
 }
 
-double AtrOffset(const double fallbackPrice)
+void EngulfMakeLine(const string name, const int x1, const double y1, const int x2, const double y2,
+                    const color clr, const ENUM_LINE_STYLE style, const int rates_total, const datetime &time[])
 {
-   double points = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-   if(points <= 0.0)
-      points = fallbackPrice * 0.0001;
-   return points * 30.0;
+   if(ObjectFind(0, name) >= 0)
+      ObjectDelete(0, name);
+
+   ObjectCreate(0, name, OBJ_TREND, 0,
+                EngulfTimeAt(time, rates_total, x1), y1,
+                EngulfTimeAt(time, rates_total, x2), y2);
+   ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
+   ObjectSetInteger(0, name, OBJPROP_STYLE, style);
+   ObjectSetInteger(0, name, OBJPROP_WIDTH, 1);
+   ObjectSetInteger(0, name, OBJPROP_RAY_RIGHT, false);
+   ObjectSetInteger(0, name, OBJPROP_RAY_LEFT, false);
+   ObjectSetInteger(0, name, OBJPROP_BACK, false);
+   ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
 }
 
-double LabelOffset(const double fallbackPrice)
+void EngulfSetLineX2(const string name, const int x2, const double y2, const int rates_total, const datetime &time[])
 {
-   double points = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-   if(points <= 0.0)
-      points = fallbackPrice * 0.0001;
-   return points * 12.0;
+   if(name == "" || ObjectFind(0, name) < 0)
+      return;
+   ObjectSetInteger(0, name, OBJPROP_TIME, 1, EngulfTimeAt(time, rates_total, x2));
+   ObjectSetDouble(0, name, OBJPROP_PRICE, 1, y2);
 }
 
-string PriceText(const double price)
+void EngulfSetLineStyle(const string name, const ENUM_LINE_STYLE style)
 {
-   return DoubleToString(price, _Digits);
+   if(name == "" || ObjectFind(0, name) < 0)
+      return;
+   ObjectSetInteger(0, name, OBJPROP_STYLE, style);
 }
-void DeleteObjectsByPrefix(const string prefix)
+
+void EngulfSetLineColor(const string name, const color clr)
+{
+   if(name == "" || ObjectFind(0, name) < 0)
+      return;
+   ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
+}
+
+// .pine: label.new(..., style=label.style_label_left, color=transparentLabel)
+void EngulfMakeLabel(const string name, const int x, const double y, const string text,
+                     const color textColor, const EngulfLabelSize size,
+                     const int rates_total, const datetime &time[])
+{
+   if(ObjectFind(0, name) >= 0)
+      ObjectDelete(0, name);
+
+   ObjectCreate(0, name, OBJ_TEXT, 0, EngulfTimeAt(time, rates_total, x), y);
+   ObjectSetString(0, name, OBJPROP_TEXT, text);
+   ObjectSetString(0, name, OBJPROP_FONT, "Arial");
+   ObjectSetInteger(0, name, OBJPROP_FONTSIZE, EngulfFontSize(size));
+   ObjectSetInteger(0, name, OBJPROP_COLOR, textColor);
+   // .pine label.style_label_left -> text sits to the LEFT of the anchor point.
+   // The anchor is the LOWER-right corner, not the middle-right one: the level
+   // line is drawn at exactly this price, so a middle anchor put the line
+   // straight through the glyphs ("SL 4124.25", "BREAK BODY", "SELL TP ...").
+   // OBJ_TEXT has no background colour in MQL5, so the label has to sit ABOVE
+   // its own line. The offset comes from the font box, not from a price delta,
+   // so it stays correct at every zoom level. Text objects also take part in the
+   // chart auto-scale, so the top-most label cannot be clipped.
+   ObjectSetInteger(0, name, OBJPROP_ANCHOR, ANCHOR_RIGHT_LOWER);
+   ObjectSetInteger(0, name, OBJPROP_BACK, false);
+   ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+}
+
+void EngulfSetLabelX(const string name, const int x, const double y, const int rates_total, const datetime &time[])
+{
+   if(name == "" || ObjectFind(0, name) < 0)
+      return;
+   ObjectSetInteger(0, name, OBJPROP_TIME, 0, EngulfTimeAt(time, rates_total, x));
+   ObjectSetDouble(0, name, OBJPROP_PRICE, 0, y);
+}
+
+void EngulfSetLabelText(const string name, const string text, const color clr, const EngulfLabelSize size)
+{
+   if(name == "" || ObjectFind(0, name) < 0)
+      return;
+   ObjectSetString(0, name, OBJPROP_TEXT, text);
+   ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
+   ObjectSetInteger(0, name, OBJPROP_FONTSIZE, EngulfFontSize(size));
+}
+
+void EngulfDeleteObject(const string name)
+{
+   if(name == "" || ObjectFind(0, name) < 0)
+      return;
+   ObjectDelete(0, name);
+}
+
+void EngulfDeleteByPrefix(const string prefix)
 {
    for(int i = ObjectsTotal(0, -1, -1) - 1; i >= 0; i--)
    {
@@ -241,4 +161,65 @@ void DeleteObjectsByPrefix(const string prefix)
       if(StringFind(name, prefix) == 0)
          ObjectDelete(0, name);
    }
+}
+
+// Same as EngulfDeleteByPrefix(), but never touches objects whose name starts
+// with `keep`. Used for the stats panel: MT5 recalculates the indicator every
+// time horizontal scrolling pulls older history in, and wiping the table on each
+// of those recalcs made the whole frame blink out for the duration of the
+// rebuild. EngulfDrawPanel() refreshes the panel in place, so the objects only
+// have to be created once (and they are still removed by OnDeinit).
+void EngulfDeleteByPrefixExcept(const string prefix, const string keep)
+{
+   for(int i = ObjectsTotal(0, -1, -1) - 1; i >= 0; i--)
+   {
+      string name = ObjectName(0, i, -1, -1);
+      if(StringFind(name, prefix) != 0)
+         continue;
+      if(keep != "" && StringFind(name, keep) == 0)
+         continue;
+      ObjectDelete(0, name);
+   }
+}
+
+string EngulfPriceText(const double price)
+{
+   return DoubleToString(price, _Digits);
+}
+
+// .pine: f_prob(_wins, _closed) = closed > 0 ? str.tostring(v,"#.##") + "%" : "n/a"
+string EngulfFormatProb(const int wins, const int closed)
+{
+   if(closed <= 0)
+      return "n/a";
+
+   double pct = (double)wins / (double)closed * 100.0;
+   string text = DoubleToString(pct, 2);
+
+   if(StringFind(text, ".") >= 0)
+   {
+      while(StringLen(text) > 0 && StringGetCharacter(text, StringLen(text) - 1) == '0')
+         text = StringSubstr(text, 0, StringLen(text) - 1);
+      if(StringLen(text) > 0 && StringGetCharacter(text, StringLen(text) - 1) == '.')
+         text = StringSubstr(text, 0, StringLen(text) - 1);
+   }
+
+   return text + "%";
+}
+
+// Risk:reward label for the panel. Drops redundant trailing zeros the same way
+// EngulfFormatProb() does so "2.0" renders as "1:2" like the mockup.
+string EngulfFormatRatio(const double rr)
+{
+   string text = DoubleToString(rr, 2);
+
+   if(StringFind(text, ".") >= 0)
+   {
+      while(StringLen(text) > 0 && StringGetCharacter(text, StringLen(text) - 1) == '0')
+         text = StringSubstr(text, 0, StringLen(text) - 1);
+      if(StringLen(text) > 0 && StringGetCharacter(text, StringLen(text) - 1) == '.')
+         text = StringSubstr(text, 0, StringLen(text) - 1);
+   }
+
+   return "1:" + text;
 }

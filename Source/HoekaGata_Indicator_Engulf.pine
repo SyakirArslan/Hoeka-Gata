@@ -1,0 +1,291 @@
+//@version=5
+// ============================================================
+// HoekaGata Engulfing Breakout  (PineScript source of truth)
+// ------------------------------------------------------------
+// 1:1 port of the MT5 indicator:
+//     Main/MQL5/Indicators/HokaGATA/HoekaGataIndicator.mq5
+//     + Includes/HoekaGataIndicator_Config.mqh
+//     + Includes/HoekaGataIndicator_Core.mqh
+//     + Includes/HoekaGataIndicator_Engulf.mqh
+//     + Includes/HoekaGataIndicator_Drawing.mqh
+//     + Includes/HoekaGataIndicator_Panel.mqh
+//
+// NOTE: This is a DRAFT / SKELETON. Inputs, colors, the results
+//       panel, and the panel data model below are complete and
+//       1:1 with MQL5. The engulfing detection + 6-state machine
+//       (STATE_NONE / BUY_SETUP / BUY_ARMED / BUY_ACTIVE /
+//       SELL_SETUP / SELL_ARMED / SELL_ACTIVE) and drawing/alert
+//       helpers are marked as TODO and will be filled in next.
+// ============================================================
+indicator("Engulfing Breakout", overlay=true, max_labels_count=500, max_lines_count=500, max_boxes_count=500)
+
+// ============================================================
+// INPUT  (1:1 with HoekaGataIndicator_Config.mqh)
+// ============================================================
+
+// --- 1. ENGULFING PATTERN ---
+grpPattern = "1. ENGULFING PATTERN"
+minBodyX   = input.float(1.2,  "Minimum Body",    group=grpPattern)   // InpMinBodyX
+minBodyP   = input.float(50.0, "Candle Body (%)", group=grpPattern)   // InpMinBodyP
+
+// --- 2. ENTRY ---
+grpEntry   = "2. ENTRY"
+bufEntryX   = input.float(0.10, "Breakout Tolerance Entry (ATR)", group=grpEntry) // InpBufEntryX
+bufSLX      = input.float(0.10, "Breakout Tolerance SL (ATR)",    group=grpEntry) // InpBufSLX
+bodyBreakTol = input.float(0.00, "Body-Break Tolerance (ATR)",    group=grpEntry) // InpBodyBreakTol
+cancelOpp   = input.bool(true, "Cancel on Opposite Signal",       group=grpEntry) // InpCancelOpp
+
+// --- 3. RISK & REWARD ---
+grpRisk    = "3. RISK & REWARD"
+rrRatio    = input.float(2.0, "Risk : Reward 1 :", minval=0.0, group=grpRisk)   // InpRrRatio
+
+// --- 4. DISPLAY (Entry / SL / TP) ---
+grpDisp    = "4. DISPLAY (Entry / SL / TP)"
+showLines  = input.bool(true, "Entry / SL / TP Lines", group=grpDisp)           // InpShowLines
+labelSize  = input.string("Small", "Label Size", options=["Tiny","Small","Normal","Large"], group=grpDisp) // InpLabelSize
+lineStyle  = input.string("Dashed", "Line Style", options=["Solid","Dashed"], group=grpDisp)               // InpLineStyle
+extendB    = input.int(3, "Line Length", minval=0, group=grpDisp)               // InpExtendB
+keepN      = input.int(3, "Displayed Setups", minval=1, group=grpDisp)          // InpKeepN
+
+// --- 4b. RESULTS SUMMARY ---
+grpResults = "4b. RESULTS SUMMARY"
+showTable  = input.bool(true, "Show Panel", group=grpResults)                   // InpShowTable
+panelSize  = input.string("Small", "Panel Text Size", options=["Tiny","Small","Normal","Large"], group=grpResults) // InpPanelSize
+
+// --- 5. BODY-BREAK (TRIGGER) ---
+grpBody    = "5. BODY-BREAK (TRIGGER)"
+bodyBreakStyle = input.string("Dotted", "Body-Break Line Style", options=["Dotted","Dashed","Solid"], group=grpBody) // InpBodyBreakStyle
+
+// --- 6. COLORS ---
+grpColor   = "6. COLORS"
+cEntryLine = input.color(color.rgb(120,123,134), "Entry Line",  group=grpColor) // InpCEntryLine
+cSL        = input.color(color.rgb(239,83,80),  "Stop Loss",    group=grpColor) // InpCSL
+cTP        = input.color(color.rgb(38,166,154), "Take Profit",  group=grpColor) // InpCTP
+cBodyBreak = input.color(color.rgb(189,189,189),"Body-Break",   group=grpColor) // InpCBodyBreak
+cBuyText   = input.color(color.rgb(38,166,154), "BUY Text",     group=grpColor) // InpCBuyText
+cSellText  = input.color(color.rgb(239,83,80),  "SELL Text",    group=grpColor) // InpCSellText
+
+
+// ============================================================
+// CONSTANTS  (1:1 with Config.mqh)
+// ============================================================
+atrPeriod = 14
+
+// Panel geometry (1:1 with Panel.mqh):
+//   PANEL_PANEL_W=200  PANEL_PAD_X=10  PANEL_PAD_Y=10
+//   PANEL_MARGIN_X=12  PANEL_MARGIN_Y=12  PANEL_LINE_H=16
+//   PANEL_FONT_BODY=8pt  PANEL_FONT_HEAD=9pt
+panelBorder = color.rgb(120,120,120)   // PANEL_BORDER
+panelHeader = color.rgb(150,150,150)   // PANEL_HEADER
+panelRule   = color.rgb(70,70,70)      // PANEL_RULE
+neutral     = color.white              // neutralColor
+// Pine text size mapping for the panel (8pt body / 9pt head cannot be set
+// directly in Pine; we map to the closest built-in sizes below).
+panelBodySize = size.tiny   // closest to 8pt
+panelHeadSize = size.small  // closest to 9pt
+
+// ============================================================
+// STATE MACHINE  (1:1 with Core.mqh)
+// ============================================================
+STATE_NONE        = 0
+STATE_BUY_SETUP   = 1    // waiting for break-body trigger
+STATE_BUY_ARMED   = 2    // break-body touched, pending at wick
+STATE_BUY_ACTIVE  = 3    // pending filled
+STATE_SELL_SETUP  = -1
+STATE_SELL_ARMED  = -2
+STATE_SELL_ACTIVE = -3
+
+// ============================================================
+// RESULTS STATS MODEL  (1:1 with struct EngulfStats in Panel.mqh)
+// ------------------------------------------------------------
+//   nSig, nRun, nWin, nLos, nCancelled,
+//   nBuyRun, nSellRun, buyWins, buyLoss, sellWins, sellLoss,
+//   maxTPStreak, maxSLStreak, state
+// ============================================================
+var int statsNSig        = 0
+var int statsNRun        = 0
+var int statsNWin        = 0
+var int statsNLos        = 0
+var int statsNCancelled  = 0
+var int statsNBuyRun     = 0
+var int statsNSellRun    = 0
+var int statsBuyWins     = 0
+var int statsBuyLoss     = 0
+var int statsSellWins    = 0
+var int statsSellLoss    = 0
+var int statsMaxTPStreak = 0
+var int statsMaxSLStreak = 0
+var int statsState       = STATE_NONE
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+// ATR (1:1 with EngulfAtrAt in Engulf.mqh: simple mean of True Range
+// over the last "period" closed bars).
+f_atr_at(_period) =>
+    _period <= 0 ? 0.0 : ta.atr(_period)
+
+// Format probability: "n/a" when closed<=0 else trimmed "#.##%" (1:1 with EngulfFormatProb).
+f_prob(_wins, _closed) =>
+    _closed <= 0 ? "n/a" : str.tostring(float(_wins) / float(_closed) * 100.0, "#.##") + "%"
+
+// Map string label size -> Pine size (1:1 with EngulfFontSize: Tiny=7, Small=9, Normal=11, Large=14).
+f_label_size(_s) =>
+    _s == "Tiny" ? size.tiny : _s == "Small" ? size.small : _s == "Normal" ? size.normal : size.large
+
+// Map line style string -> Pine style.
+f_line_style(_s) =>
+    _s == "Dashed" ? line.style_dashed : line.style_solid
+
+// Map body-break style string -> Pine style.
+f_bodybreak_style(_s) =>
+    _s == "Dotted" ? line.style_dotted : _s == "Dashed" ? line.style_dashed : line.style_solid
+
+// ============================================================
+// RESULTS PANEL  (1:1 with EngulfDrawPanel in Panel.mqh)
+// ------------------------------------------------------------
+// Title caption above frame + 13 data rows:
+//   caption : "Engulfing Breakout"
+//   row 0   : "By Syakir Arslan (modified)"  (author, centered)
+//   row 1   : "SETUP"      (section header)
+//   row 2   : "R:R"       | "1:2.0"
+//   row 3   : "Status"    | "NONE"
+//   row 4   : "Cancelled" | nCancelled
+//   row 5   : "RESULTS"    (section header)
+//   row 6   : "Signals"   | nSig
+//   row 7   : "Entries"   | nRun
+//   row 8   : "Buy WR"    | pct (nBuyRun)   [cBuyText]
+//   row 9   : "Sell WR"   | pct (nSellRun)  [cSellText]
+//   row 10  : "Max TP Run"| maxTPStreak     [cBuyText]
+//   row 11  : "Max SL Run"| maxSLStreak     [cSellText]
+//   row 12  : "Overall: pct"                 (centered)
+// ============================================================
+
+var table probTable = table.new(position.top_right, 2, 14,
+     border_color=color.new(panelBorder, 0), border_width=1,
+     frame_color=color.new(panelBorder, 0), frame_width=1)
+
+f_status_text(_st) =>
+    _st == STATE_BUY_ACTIVE  ? "BUY"  :
+    _st == STATE_SELL_ACTIVE ? "SELL" :
+    _st == STATE_BUY_ARMED   ? "BUY"  :
+    _st == STATE_SELL_ARMED  ? "SELL" :
+    _st == STATE_BUY_SETUP   ? "BUY"  :
+    _st == STATE_SELL_SETUP  ? "SELL" : "NONE"
+
+f_draw_panel() =>
+    if showTable
+        table.cell(probTable, 0, 0, "Engulfing Breakout",
+             text_color=panelHeader, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_center, text_size=panelHeadSize)
+        table.cell(probTable, 1, 0, "",
+             text_color=panelHeader, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_center, text_size=panelHeadSize)
+
+        table.cell(probTable, 0, 1, "By Syakir Arslan (modified)",
+             text_color=panelHeader, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_center, text_size=panelBodySize)
+        table.cell(probTable, 1, 1, "",
+             text_color=panelHeader, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_center, text_size=panelBodySize)
+
+        table.cell(probTable, 0, 2, "SETUP",
+             text_color=panelHeader, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_center, text_size=panelBodySize)
+        table.cell(probTable, 1, 2, "",
+             text_color=panelHeader, bgcolor=color.new(color.black, 100),
+
+        table.cell(probTable, 0, 3, "R:R",
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_left, text_size=panelBodySize)
+        table.cell(probTable, 1, 3, "1:" + str.tostring(rrRatio, "#.#"),
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_right, text_size=panelBodySize)
+
+        table.cell(probTable, 0, 4, "Status",
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_left, text_size=panelBodySize)
+        table.cell(probTable, 1, 4, f_status_text(statsState),
+             text_color=color.gray, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_right, text_size=panelBodySize)
+
+        table.cell(probTable, 0, 5, "Cancelled",
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_left, text_size=panelBodySize)
+        table.cell(probTable, 1, 5, str.tostring(statsNCancelled),
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_right, text_size=panelBodySize)
+
+        table.cell(probTable, 0, 6, "RESULTS",
+             text_color=panelHeader, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_center, text_size=panelBodySize)
+        table.cell(probTable, 1, 6, "",
+             text_color=panelHeader, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_center, text_size=panelBodySize)
+
+        table.cell(probTable, 0, 7, "Signals",
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_left, text_size=panelBodySize)
+        table.cell(probTable, 1, 7, str.tostring(statsNSig),
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_right, text_size=panelBodySize)
+
+        table.cell(probTable, 0, 8, "Entries",
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_left, text_size=panelBodySize)
+        table.cell(probTable, 1, 8, str.tostring(statsNRun),
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_right, text_size=panelBodySize)
+
+        table.cell(probTable, 0, 9, "Buy WR",
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_left, text_size=panelBodySize)
+        table.cell(probTable, 1, 9, f_prob(statsBuyWins, statsBuyWins + statsBuyLoss) + " (" + str.tostring(statsNBuyRun) + ")",
+             text_color=cBuyText, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_right, text_size=panelBodySize)
+
+        table.cell(probTable, 0, 10, "Sell WR",
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_left, text_size=panelBodySize)
+        table.cell(probTable, 1, 10, f_prob(statsSellWins, statsSellWins + statsSellLoss) + " (" + str.tostring(statsNSellRun) + ")",
+             text_color=cSellText, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_right, text_size=panelBodySize)
+
+        table.cell(probTable, 0, 11, "Max TP Run",
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_left, text_size=panelBodySize)
+        table.cell(probTable, 1, 11, str.tostring(statsMaxTPStreak),
+             text_color=cBuyText, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_right, text_size=panelBodySize)
+
+        table.cell(probTable, 0, 12, "Max SL Run",
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_left, text_size=panelBodySize)
+        table.cell(probTable, 1, 12, str.tostring(statsMaxSLStreak),
+             text_color=cSellText, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_right, text_size=panelBodySize)
+
+        table.cell(probTable, 0, 13, "Overall: " + f_prob(statsNWin, statsNWin + statsNLos),
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_center, text_size=panelBodySize)
+        table.cell(probTable, 1, 13, "",
+             text_color=neutral, bgcolor=color.new(color.black, 100),
+             text_halign=text.align_center, text_size=panelBodySize)
+
+// ============================================================
+// TODO (next step): engulfing detection + 6-state machine
+// ============================================================
+//   f_detect_engulfing()  -> sigBuy / sigSell  (1:1 with DetectEngulfing)
+//   f_compute_levels()    -> break/entry/sl/tp (1:1 with EngulfComputeLevels)
+//   RecalculateEngulfing() -> full bar loop + state transitions
+//   drawing helpers (Entry/SL/TP/Body-Break lines + labels)
+//   alerts (BREAK BODY TRIGGERED / ENTRY / TP HIT / SL HIT / CANCELLED)
+
+// ============================================================
+// ENTRY POINT
+// ============================================================
+// Placeholder: draw the panel every bar for review. Real stats will be
+// populated by the state machine in the next iteration.
+f_draw_panel()
+
