@@ -470,15 +470,23 @@ Catatan: label entry memakai `InpCBuyText`/`InpCSellText` saat fill, jadi warna 
 
 ## Perbedaan dengan Pine
 
-| Aspek | MQL5 | Pine (`HoekaGata_Indicator_Engulf.pine`) |
+Dibandingkan dengan versi lengkap `Source/HoekaGata_Indicator.pine`:
+
+| Aspek | MQL5 | Pine (`HoekaGata_Indicator.pine`) |
 | --- | --- | --- |
-| Status engine | lengkap (pola → state → level → panel → alert) | draft: input, warna, panel, model statistik lengkap; engine masih TODO |
-| ATR | rata-rata sederhana True Range | `ta.atr()` (RMA) |
-| Panel | 13 baris + kotak footer terpisah; label `Runs`, `Buy %`, `Sell %`, `Cancel`, `TP Streak`, `SL Streak` | tabel 2×14; label `Entries`, `Buy WR`, `Sell WR`, `Cancelled`, `Max TP Run`, `Max SL Run`; baris `Overall` menyatu di tabel |
-| Status | `PENDING BUY` / `PENDING SELL` / `BUY` / `SELL` / `NONE` | `BUY` / `SELL` / `NONE` (state pending tampil sebagai BUY/SELL) |
-| Ukuran teks | 8 pt / 9 pt (Arial) | `size.tiny` / `size.small` (pendekatan terdekat) |
+| Status engine | lengkap (pola → state → level → panel → alert) | lengkap (pola → state → level → panel → alert) |
+| Mode pola | `InpPatMode` `Strict` / `Loose` | `Pattern Mode` `Strict` / `Loose` |
+| ATR | rata-rata sederhana True Range 14 bar | `ta.atr(14)` (RMA) |
+| Panel | 13 baris + kotak footer terpisah; label `Runs`, `Buy %`, `Sell %`, `Cancel`, `TP Streak`, `SL Streak` | tabel 2×14 dengan blok `SETUP` / `RESULTS`; label `Entries`, `Buy WR`, `Sell WR`, `Cancelled`, `Max TP Run`, `Max SL Run`; baris `Overall` di dalam tabel |
+| Status | `PENDING BUY` / `PENDING SELL` / `BUY` / `SELL` / `NONE` | sama |
+| Ukuran teks | 8 pt / 9 pt (Arial) | `size.tiny` / `size.small` / `size.normal` |
 | Objek chart | `OBJ_TREND` + `OBJ_TEXT` + objek panel | `line` + `label` + `table` |
-| `keepN` (Pine) / `InpKeepN` (MQL5) | batas objek per jenis | input tersedia, dipakai saat engine diisi |
+| Pemangkasan riwayat | `InpKeepN` setup, dipangkas per jenis objek | `Displayed Setups` (`keepN`), entry/SL/TP dipangkas `keepN * 3`, body-break `keepN` |
+| Alert | 5 `Alert()` | 6 `alertcondition` + 5 `alert()` dinamis |
+| Integrasi EA | buffer + `GlobalVariable` | tidak ada (manual) |
+
+Draft `Source/HoekaGata_Indicator_Engulf.pine` sengaja tidak dipakai sebagai pembanding: file itu baru
+berisi input + panel, engine-nya masih TODO.
 
 Perbedaan ATR membuat level bisa bergeser tipis antara TradingView dan MT5 pada bar yang sama. Itu
 sifat yang diketahui dan disengaja; selisih kecil bukan bug.
@@ -508,7 +516,7 @@ sifat yang diketahui dan disengaja; selisih kecil bukan bug.
 | Panel terbaca samar | Theme chart terang | Gunakan theme gelap |
 | Statistik tidak bertambah | Belum ada fill/hasil pada histori yang ter-load | Muat histori lebih panjang, atau tunggu bar baru |
 | EA tidak membuka posisi | `Algo` off, filter spread/time, atau buffer kosong | Lihat panel EA dan tab Experts EA (alasan terakhir selalu ditulis) |
-| Level beda dengan TradingView | ATR RMA vs SMA, atau script Pine yang terpasang bukan versi Engulf | Pastikan script yang benar dan pahami perbedaan ATR |
+| Level beda dengan TradingView | ATR RMA vs rata-rata sederhana, atau yang dipasang justru draft `HoekaGata_Indicator_Engulf.pine` | Pasang `Source/HoekaGata_Indicator.pine` (versi lengkap) dan pahami perbedaan ATR |
 
 ## Checklist Verifikasi
 

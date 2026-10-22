@@ -1,1112 +1,576 @@
 //@version=5
-indicator("HoekaGata Wave3 Pro", overlay=true, max_labels_count=500, max_lines_count=500)
+indicator("Engulfing Breakout - Arslan", overlay=true, max_lines_count=500, max_labels_count=500)
 
-// =====================================================
-// INPUT
-// =====================================================
-pivotLen              = input.int(8, "Pivot Min", minval=2, maxval=50, group="Config / Rules")
-maxSwingBars          = input.int(100, "Pivot Max", minval=2, maxval=500, group="Config / Rules")
-rawPivotLen           = 2
+// ================= 1. PATTERN =================
+g1 = "1. ENGULFING PATTERN"
+patMode = input.string("Strict", "Pattern Mode", options=["Strict", "Loose"], group=g1)
+minBodyX = input.float(1.2, "Minimum Body", minval=0.5, step=0.1, group=g1)
+minBodyP = input.float(50.0, "Candle Body (%)", minval=0, maxval=100, step=5, group=g1)
 
-wave2FibTolerance     = input.float(0.05, "Wave 2 Fibo Tol", minval=0.0, maxval=0.2, step=0.001, group="Config / Rules")
-useEntryFibBarrier    = input.bool(false, "Entry Barrier", group="Config / Rules")
-entryTriggerFibLevel  = input.float(1.272, "Trigger Fibo", minval=1.0, maxval=1.618, step=0.001, group="Config / Rules")
-useParallelSlopeRule  = input.bool(true, "Slope Rule", group="Config / Rules")
-parallelTolerance     = input.float(0.15, "Slope Tol", minval=0.0, maxval=2.0, step=0.01, group="Config / Rules")
-minBarsBetweenEntry   = input.int(30, "Entry Gap (Candle)", minval=1, group="Config / Rules")
+// ================= 2. ENTRY =================
+g2 = "2. ENTRY"
+bufEntryX = input.float(0.10, "Breakout Tolerance Entry (ATR)", minval=0, step=0.01, group=g2)
+bufSLX = input.float(0.10, "Breakout Tolerance SL (ATR)", minval=0, step=0.01, group=g2)
+bodyBreakToleranceATR = input.float(0.00, "Body-Break Tolerance (ATR)", minval=0.0, step=0.01, group=g2)
+cancelOpp = input.bool(true, "Cancel on Opposite Signal", group=g2)
 
-enableBuyAlerts       = input.bool(true, "BUY Alert", group="Alerts")
-enableSellAlerts      = input.bool(true, "SELL Alert", group="Alerts")
+// ================= 3. RISK & REWARD =================
+g3 = "3. RISK & REWARD"
+rrRatio = input.float(2.0, "Risk : Reward 1 :", minval=0.1, step=0.1, group=g3)
 
-showEarlyWave3Entry   = true
-useAggressiveWave3    = showEarlyWave3Entry
-showWaveLines         = input.bool(true, "Waves Line", group="Display")
-showTrendLines        = input.bool(true, "Trendline", group="Display")
-showFibLines          = input.bool(true, "Fibo Line", group="Display")
-showEntryFib1618      = input.bool(true, "1.618 Line", group="Display")
+// ================= 4. DISPLAY (Entry / SL / TP) =================
+g4 = "4. DISPLAY (Entry / SL / TP)"
+showLines = input.bool(true, "Entry / SL / TP Lines", group=g4)
+labelSizeInput = input.string("Small", "Label Size", options=["Tiny", "Small", "Normal", "Large"], group=g4)
+lineStyleInput = input.string("Dashed", "Line Style", options=["Solid", "Dashed"], group=g4)
+extendB = input.int(3, "Line Length", minval=0, maxval=50, group=g4)
+keepN = input.int(3, "Displayed Setups", minval=1, maxval=100, group=g4)
 
-displayMode           = input.string("Latest only", "Mode", options=["Latest only", "History"], group="General")
-maxObjects            = input.int(300, "Max Objects", minval=50, maxval=500, group="General")
-drawingLineWidth      = input.int(1, "Width", minval=1, maxval=5, group="General")
-drawingLabelSizeInput = input.string("Tiny", "Label", options=["Tiny", "Small", "Normal"], group="General")
-showProbabilityPanel  = input.bool(true, "HoekaGata Panel", group="General")
+// ================= 4b. RESULTS SUMMARY =================
+g4b = "4b. RESULTS SUMMARY"
+showTable = input.bool(true, "Show Panel", group=g4b)
+panelSizeInput = input.string("Small", "Panel Text Size", options=["Tiny", "Small", "Normal"], group=g4b)
+panelSize = panelSizeInput == "Tiny" ? size.tiny : panelSizeInput == "Normal" ? size.normal : size.small
 
-wave2FibLevel         = 0.618
-wave2FibLevel2        = 0.500
+// ================= 5. BODY-BREAK (TRIGGER) =================
+g5b = "5. BODY-BREAK (TRIGGER)"
+bodyBreakLineStyleInput = input.string("Dotted", "Body-Break Line Style", options=["Dotted", "Dashed", "Solid"], group=g5b)
+// Body-break history count follows keepN (Displayed Setups)
+keepBodyHistory = keepN
 
-entryFibLevel         = 1.618
-entryFibNegLevel      = -0.270
+// ================= 6. COLORS =================
+g6 = "6. COLORS"
+cEntryLine = input.color(#787B86, "Entry Line", group=g6)
+cSL = input.color(#EF5350, "Stop Loss", group=g6)
+cTP = input.color(#26A69A, "Take Profit", group=g6)
+cBodyBreak = input.color(#BDBDBD, "Body-Break", group=g6)
+cBuyText = input.color(#26A69A, "BUY Text", group=g6)
+cSellText = input.color(#EF5350, "SELL Text", group=g6)
 
-wave4FibLevel         = 0.618
-wave4FibLevel2        = 0.786
+// ================= DISPLAY SETTINGS =================
+labelSize = labelSizeInput == "Tiny" ? size.tiny : labelSizeInput == "Normal" ? size.normal : labelSizeInput == "Large" ? size.large : size.small
+selectedLineStyle = lineStyleInput == "Solid" ? line.style_solid : line.style_dashed
+transparentLabel = color.new(color.black, 100)
 
+// ================= BASE CALCULATION =================
+atr = ta.atr(14)
+bufEntry = bufEntryX * atr
+bufSL = bufSLX * atr
+bufBodyBreak = bodyBreakToleranceATR * atr
 
-// =====================================================
-// COLORS
-// =====================================================
-downColor             = input.color(color.red, "Down Wave")
-upColor               = input.color(color.lime, "Up Wave")
-entryBuyColor         = input.color(color.aqua, "BUY Entry")
-entrySellColor        = input.color(color.orange, "SELL Entry")
-normalLabelColor      = input.color(color.gray, "Label")
-wave2FibColor         = input.color(color.yellow, "Wave 2 Fibo")
-fib1618Color          = input.color(color.fuchsia, "Entry 1.618")
-targetFibColor        = input.color(color.blue, "Target Fibo")
-neutralColor          = input.color(color.white, "Neutral")
+o1 = open[1]
+c1 = close[1]
 
-atrVal  = ta.atr(14)
+// --- reference points: selalu wick prev candle
+pTopRef = high[1]
+pBotRef = low[1]
+rgPrev = high[1] - low[1]
 
-// =====================================================
-// STORAGE
-// =====================================================
-var array<float> swingPrice   = array.new_float()
-var array<int>   swingIndex   = array.new_int()
-var array<int>   swingType    = array.new_int()
+bdCur = math.abs(close - open)
 
-var array<label> allLabels = array.new_label()
-var array<line>  allLines  = array.new_line()
+// ================= PATTERN DETECTION =================
+engBull = patMode == "Strict" ? open <= pBotRef and close >= pTopRef : close > pTopRef
+engBear = patMode == "Strict" ? open >= pTopRef and close <= pBotRef : close < pTopRef
 
-// anti duplicate key storage
-var array<string> drawKeys = array.new_string()
-var array<string> upsertLineKeys = array.new_string()
-var array<line> upsertLines = array.new_line()
+okBodyX = rgPrev > 0 ? bdCur >= rgPrev * minBodyX : bdCur > 0
+okBodyP = rgPrev > 0 and bdCur / rgPrev * 100.0 >= minBodyP
+okAll = okBodyX and okBodyP
 
-var int lastBearEntry3 = na
-var int lastBullEntry3 = na
-var int lastEntry3 = na
+sigBuy = barstate.isconfirmed and close > open and c1 < o1 and engBull and okAll
+sigSell = barstate.isconfirmed and close < open and c1 > o1 and engBear and okAll
 
-var string wave3AlertSide = ""
-var float wave3AlertEntry = na
-var float wave3AlertSL = na
-var float wave3AlertTP = na
+// ================= STATE =================
+var int state = 0
+var int setupDir = 0
+var int setupBar = na
+var int entryBar = na
 
-var bool activeBear012 = false
-var bool activeBull012 = false
-var bool activeBearTriggered = false
-var bool activeBullTriggered = false
-var int invalidBearI1 = na
-var int invalidBullI1 = na
-var int triggeredBearI1 = na
-var int triggeredBullI1 = na
+var float pBreak = na
+var float pEntry = na
+var float pSL = na
+var float pTP = na
 
-var int activeBearI0 = na
-var int activeBearI1 = na
-var int activeBearI2 = na
-var float activeBearP0 = na
-var float activeBearP1 = na
-var float activeBearP2 = na
+var line lnE = na
+var line lnS = na
+var line lnT = na
 
-var int activeBullI0 = na
-var int activeBullI1 = na
-var int activeBullI2 = na
-var float activeBullP0 = na
-var float activeBullP1 = na
-var float activeBullP2 = na
+var label lbE = na
+var label lbS = na
+var label lbT = na
 
-var array<int>    statsOpenDir      = array.new_int()
-var array<string> statsOpenKey      = array.new_string()
-var array<float>  statsOpenEntry    = array.new_float()
-var array<float>  statsOpenSL       = array.new_float()
-var array<float>  statsOpenTP       = array.new_float()
-var array<int>    statsOpenBar      = array.new_int()
-var array<int>    statsAllDir       = array.new_int()
-var array<int>    statsClosedDir    = array.new_int()
-var array<int>    statsClosedResult = array.new_int()
-var array<string> statsTradeKeys    = array.new_string()
-var table probabilityTable = table.new(position.top_right, 2, 12, border_color=color.new(color.gray, 40), border_width=1, frame_color=color.new(color.gray, 20), frame_width=1)
-var bool probabilityTableOverallMerged = false
+// arrays for regular setup lines/labels
+var array<line> arrLn = array.new<line>()
+var array<label> arrLb = array.new<label>()
 
-// =====================================================
-// ANTI DUPLICATE HELPER
-// =====================================================
-f_key_exists(_key) =>
-    bool exists = false
-    int sz = array.size(drawKeys)
-    if sz > 0
-        for k = 0 to sz - 1
-            if array.get(drawKeys, k) == _key
-                exists := true
-    exists
+// arrays for body-break history (store all created single body-break lines/labels)
+var array<line> arrBodyLn = array.new<line>()
+var array<label> arrBodyLb = array.new<label>()
 
-f_register_key(_key) =>
-    bool canDraw = not f_key_exists(_key)
-    if canDraw
-        array.push(drawKeys, _key)
-    canDraw
+// active single body-break references for current setup (so we can extend/freeze them)
+var line lnBodyBreakActive = na
+var label lbBodyBreakActive = na
 
-// =====================================================
-// HELPER FUNCTIONS
-// =====================================================
-f_clear_drawings() =>
-    while array.size(allLabels) > 0
-        label.delete(array.pop(allLabels))
-    while array.size(allLines) > 0
-        line.delete(array.pop(allLines))
-    while array.size(drawKeys) > 0
-        array.pop(drawKeys)
-    while array.size(upsertLineKeys) > 0
-        array.pop(upsertLineKeys)
-    while array.size(upsertLines) > 0
-        array.pop(upsertLines)
+// ================= STATISTICS =================
+var int nSig = 0
+var int nRun = 0
+var int nWin = 0
+var int nLos = 0
+var int nCancelled = 0
 
-f_trim_objects() =>
-    while array.size(allLabels) > maxObjects
-        label.delete(array.shift(allLabels))
-    while array.size(allLines) > maxObjects
-        line.delete(array.shift(allLines))
+var int nBuyRun = 0
+var int nSellRun = 0
 
-f_prepare_draw() =>
-    if displayMode == "Latest only"
-        f_clear_drawings()
+var int buyWins = 0
+var int buyLoss = 0
+var int sellWins = 0
+var int sellLoss = 0
 
-f_mid_x(_x1, _x2) =>
-    int(math.round((_x1 + _x2) / 2.0))
+var int curTPStreak = 0
+var int curSLStreak = 0
+var int maxTPStreak = 0
+var int maxSLStreak = 0
 
-f_price_text(_price) =>
-    str.tostring(_price, format.mintick)
+// ================= EVENT FLAGS =================
+armedNow = false
+hitBuy = false
+hitSell = false
+tpHitNow = false
+slHitNow = false
+cancelledNow = false
+cancelledDir = 0
 
-f_label_size(_sizeInput) =>
-    _sizeInput == "Tiny" ? size.tiny : _sizeInput == "Small" ? size.small : size.normal
+if sigBuy or sigSell
+    nSig += 1
 
-f_new_label(_x, _y, _txt, _style, _bgColor) =>
-    label lb = label.new(
-         x=_x,
-         y=_y,
-         text=_txt,
-         xloc=xloc.bar_index,
-         yloc=yloc.price,
-         style=_style,
-         color=_bgColor,
-         textcolor=neutralColor,
-         size=f_label_size(drawingLabelSizeInput)
-      )
-    array.push(allLabels, lb)
-    f_trim_objects()
+// ================= Helper: delete arrays safely =================
+f_delete_lines_from_array(_arr) =>
+    for i = 0 to array.size(_arr) - 1
+        line.delete(array.get(_arr, i))
+    array.clear(_arr)
 
-f_new_label_sized(_x, _y, _txt, _style, _bgColor, _size) =>
-    label lb = label.new(
-         x=_x,
-         y=_y,
-         text=_txt,
-         xloc=xloc.bar_index,
-         yloc=yloc.price,
-         style=_style,
-         color=_bgColor,
-         textcolor=neutralColor,
-         size=_size
-     )
-    array.push(allLabels, lb)
-    f_trim_objects()
+f_delete_labels_from_array(_arr) =>
+    for i = 0 to array.size(_arr) - 1
+        label.delete(array.get(_arr, i))
+    array.clear(_arr)
 
-f_new_label_once(_key, _x, _y, _txt, _style, _bgColor) =>
-    if f_register_key(_key)
-        f_new_label(_x, _y, _txt, _style, _bgColor)
+// ================= EXTEND ACTIVE SETUP =================
+if state != 0
+    xRight = bar_index + extendB
 
-f_new_label_once_sized(_key, _x, _y, _txt, _style, _bgColor, _size) =>
-    if f_register_key(_key)
-        f_new_label_sized(_x, _y, _txt, _style, _bgColor, _size)
+    if not na(lnE)
+        line.set_x2(lnE, xRight)
 
-f_new_line(_x1, _y1, _x2, _y2, _clr, _style, _width, _extend) =>
-    line ln = line.new(
-         x1=_x1,
-         y1=_y1,
-         x2=_x2,
-         y2=_y2,
-         xloc=xloc.bar_index,
-         extend=_extend,
-         color=_clr,
-         style=_style,
-         width=_width
-      )
-    array.push(allLines, ln)
-    f_trim_objects()
+    if not na(lnS)
+        line.set_x2(lnS, xRight)
 
-f_new_line_once(_key, _x1, _y1, _x2, _y2, _clr, _style, _width, _extend) =>
-    if f_register_key(_key)
-        f_new_line(_x1, _y1, _x2, _y2, _clr, _style, _width, _extend)
+    if not na(lnT)
+        line.set_x2(lnT, xRight)
 
-f_upsert_line(_key, _x1, _y1, _x2, _y2, _clr, _style, _width, _extend) =>
-    int found = -1
-    int sz = array.size(upsertLineKeys)
-    if sz > 0
-        for k = 0 to sz - 1
-            if array.get(upsertLineKeys, k) == _key
-                found := k
+    if not na(lbE)
+        label.set_x(lbE, xRight)
 
-    if found >= 0
-        line ln = array.get(upsertLines, found)
-        line.set_x1(ln, _x1)
-        line.set_y1(ln, _y1)
-        line.set_x2(ln, _x2)
-        line.set_y2(ln, _y2)
-        line.set_color(ln, _clr)
-        line.set_style(ln, _style)
-        line.set_width(ln, _width)
-        line.set_extend(ln, _extend)
-    else
-        line ln = line.new(
-             x1=_x1,
-             y1=_y1,
-             x2=_x2,
-             y2=_y2,
-             xloc=xloc.bar_index,
-             extend=_extend,
-             color=_clr,
-             style=_style,
-             width=_width
-         )
-        array.push(upsertLineKeys, _key)
-        array.push(upsertLines, ln)
-        array.push(allLines, ln)
-        f_trim_objects()
+    if not na(lbS)
+        label.set_x(lbS, xRight)
 
-// =====================================================
-// FIBO FORMULA
-// _p1 = Fibo 1
-// _p0 = Fibo 0
-// =====================================================
-f_fib_price(_p1, _p0, _level) =>
-    _p0 + (_p1 - _p0) * _level
+    if not na(lbT)
+        label.set_x(lbT, xRight)
 
-// =====================================================
-// WAVE 2 RULE
-// 0 = Fibo 1
-// 1 = Fibo 0
-// 2 valid jika minimal kena 0.5 dan masuk range 0.5 sampai 0.618.
-// Tolerance hanya diterapkan pada batas 0.618.
-// =====================================================
-f_wave2_in_0618_zone(_p2, _p0, _p1) =>
-    float fib50 = f_fib_price(_p0, _p1, wave2FibLevel2)
-    float fib618 = f_fib_price(_p0, _p1, wave2FibLevel)
-    float tolerancePrice = math.abs(_p0 - _p1) * wave2FibTolerance
+    // extend active single body-break visual (if exists)
+    if not na(lnBodyBreakActive)
+        line.set_x2(lnBodyBreakActive, xRight)
+    if not na(lbBodyBreakActive)
+        label.set_x(lbBodyBreakActive, xRight)
 
-    float zoneLow  = math.min(fib50, fib618) - (_p0 < _p1 ? tolerancePrice : 0.0)
-    float zoneHigh = math.max(fib50, fib618) + (_p0 > _p1 ? tolerancePrice : 0.0)
+// ================= OPPOSITE SIGNAL CANCELLATION =================
+// state 1/2 = BUY menunggu trigger / pending aktif; -1/-2 = SELL. Cancel sebelum posisi terisi (3/-3).
+oppositeToBuy = (state == 1 or state == 2) and sigSell
+oppositeToSell = (state == -1 or state == -2) and sigBuy
 
-    _p2 >= zoneLow and _p2 <= zoneHigh
+if cancelOpp and (oppositeToBuy or oppositeToSell)
+    cancelledDir := state > 0 ? 1 : -1
+    nCancelled += 1
+    cancelledNow := true
+    state := 0
 
-f_realtime_wave2_price(_p0, _p1, _isUptrend) =>
-    float fib50 = f_fib_price(_p0, _p1, wave2FibLevel2)
-    float fib618 = f_fib_price(_p0, _p1, wave2FibLevel)
-    float tolerancePrice = math.abs(_p0 - _p1) * wave2FibTolerance
-    float zoneLow = math.min(fib50, fib618) - (_p0 < _p1 ? tolerancePrice : 0.0)
-    float zoneHigh = math.max(fib50, fib618) + (_p0 > _p1 ? tolerancePrice : 0.0)
-    float candidate = _isUptrend ? low : high
+    // delete only setup visuals (lines & labels)
+    f_delete_lines_from_array(arrLn)
+    f_delete_labels_from_array(arrLb)
 
-    candidate >= zoneLow and candidate <= zoneHigh ? candidate : na
+    lnE := na
+    lnS := na
+    lnT := na
 
-f_wave2_breached_0618(_p0, _p1, _isUptrend) =>
-    float fib618 = f_fib_price(_p0, _p1, wave2FibLevel)
-    float tolerancePrice = math.abs(_p0 - _p1) * wave2FibTolerance
+    lbE := na
+    lbS := na
+    lbT := na
 
-    _isUptrend ? low < fib618 - tolerancePrice : high > fib618 + tolerancePrice
+    // clear active single body-break references (history remains)
+    lnBodyBreakActive := na
+    lbBodyBreakActive := na
 
-f_wave2_breached_0618_between(_i1, _i2, _p0, _p1, _isUptrend) =>
-    float fib618 = f_fib_price(_p0, _p1, wave2FibLevel)
-    float tolerancePrice = math.abs(_p0 - _p1) * wave2FibTolerance
-    bool breached = false
-    int offsetA = math.max(bar_index - _i1, 0)
-    int offsetB = math.max(bar_index - _i2, 0)
-    int startOffset = math.min(offsetA, offsetB)
-    int endOffset = math.max(offsetA, offsetB)
+// ================= BREAK BODY TRIGGER (BUY) =================
+if state == 1 and bar_index > setupBar
+    if high >= pBreak
+        state := 2
+        armedNow := true
 
-    for offset = startOffset to endOffset
-        if _isUptrend and not na(low[offset]) and low[offset] < fib618 - tolerancePrice
-            breached := true
-        if not _isUptrend and not na(high[offset]) and high[offset] > fib618 + tolerancePrice
-            breached := true
+// ================= PENDING FILL (BUY) =================
+if state == 2
+    if high >= pEntry
+        state := 3
+        entryBar := bar_index
 
-    breached
+        nRun += 1
+        nBuyRun += 1
+        hitBuy := true
 
-// =====================================================
-// WAVE 3 ENTRY RULE
-// 2 = Fibo 0, 1 = Fibo 1.
-// Entry can trigger at Fibo 1 or at the optional fib barrier.
-// =====================================================
-f_entry_1618_price(_p1, _p2) =>
-    f_fib_price(_p1, _p2, entryFibLevel)
+        if not na(lnE)
+            line.set_style(lnE, line.style_solid)
+            line.set_color(lnE, cBuyText)
 
-f_wave3_neg027_price(_p2, _p3) =>
-    f_fib_price(_p2, _p3, entryFibNegLevel)
+        if not na(lbE)
+            label.set_text(lbE, "BUY " + str.tostring(pEntry, format.mintick))
+            label.set_textcolor(lbE, cBuyText)
 
-f_entry_break_fib1_and_beyond_1618(_p3, _p1, _p2, _isDowntrend) =>
-    float triggerPrice = useEntryFibBarrier ? f_fib_price(_p1, _p2, entryTriggerFibLevel) : _p1
+// ================= BREAK BODY TRIGGER (SELL) =================
+if state == -1 and bar_index > setupBar
+    if low <= pBreak
+        state := -2
+        armedNow := true
 
-    bool breakFib1Down = _isDowntrend and _p3 <= triggerPrice
-    bool breakFib1Up = not _isDowntrend and _p3 >= triggerPrice
+// ================= PENDING FILL (SELL) =================
+if state == -2
+    if low <= pEntry
+        state := -3
+        entryBar := bar_index
 
-    breakFib1Down or breakFib1Up
+        nRun += 1
+        nSellRun += 1
+        hitSell := true
 
-// =====================================================
-// WAVE 4 RULE
-// 2 = Fibo 1, 3 = Fibo 0.
-// Level ini dipakai untuk area bantu entry setelah Wave 3.
-// =====================================================
-f_wave4_fib_price(_p2, _p3) =>
-    f_fib_price(_p2, _p3, wave4FibLevel)
+        if not na(lnE)
+            line.set_style(lnE, line.style_solid)
+            line.set_color(lnE, cSellText)
 
-f_wave4_fib2_price(_p2, _p3) =>
-    f_fib_price(_p2, _p3, wave4FibLevel2)
+        if not na(lbE)
+            label.set_text(lbE, "SELL " + str.tostring(pEntry, format.mintick))
+            label.set_textcolor(lbE, cSellText)
 
-// =====================================================
-// PROBABILITY STATS
-// Downtrend signal = Buy. Uptrend signal = Sell.
-// Entry = Wave 3, SL = -0.27 from Wave 2 to Wave 3, TP = 0.618 from Wave 2 to Wave 3.
-// =====================================================
-f_stats_key_exists(_key) =>
-    bool exists = false
-    int sz = array.size(statsTradeKeys)
-    if sz > 0
-        for k = 0 to sz - 1
-            if array.get(statsTradeKeys, k) == _key
-                exists := true
-    exists
+// ================= ACTIVE BUY RESULT =================
+if state == 3 and bar_index > entryBar
+    if low <= pSL
+        nLos += 1
+        buyLoss += 1
 
-f_stats_sl_price(_p2, _p3) =>
-    f_wave3_neg027_price(_p2, _p3)
+        curSLStreak += 1
+        curTPStreak := 0
+        maxSLStreak := math.max(maxSLStreak, curSLStreak)
 
-f_stats_tp_price(_p2, _p3) =>
-    f_wave4_fib_price(_p2, _p3)
+        slHitNow := true
+        state := 0
 
-f_trade_result_since_entry(_entryBar, _dir, _sl, _tp) =>
-    int result = 0
-    if bar_index > _entryBar
-        int offset = bar_index - _entryBar - 1
-        while offset >= 0 and result == 0
-            bool tpHit = _dir == 1 ? high[offset] >= _tp : low[offset] <= _tp
-            bool slHit = _dir == 1 ? low[offset] <= _sl : high[offset] >= _sl
-            if slHit or tpHit
-                result := slHit ? -1 : 1
-            offset -= 1
-    result
+        if not na(lbE)
+            label.set_text(lbE, "BUY SL " + str.tostring(pEntry, format.mintick))
+            label.set_textcolor(lbE, cSL)
 
-f_add_stats_trade(_key, _dir, _entryBar, _entryPrice, _slPrice, _tpPrice) =>
-    if showProbabilityPanel and not f_stats_key_exists(_key)
-        array.push(statsTradeKeys, _key)
-        array.push(statsAllDir, _dir)
+        if not na(lbS)
+            label.set_text(lbS, "SL HIT " + str.tostring(pSL, format.mintick))
+            label.set_textcolor(lbS, cSL)
 
-        int initialResult = f_trade_result_since_entry(_entryBar, _dir, _slPrice, _tpPrice)
-        if initialResult == 0
-            array.push(statsOpenDir, _dir)
-            array.push(statsOpenKey, _key)
-            array.push(statsOpenEntry, _entryPrice)
-            array.push(statsOpenSL, _slPrice)
-            array.push(statsOpenTP, _tpPrice)
-            array.push(statsOpenBar, _entryBar)
-        else
-            array.push(statsClosedDir, _dir)
-            array.push(statsClosedResult, initialResult)
+    else if high >= pTP
+        nWin += 1
+        buyWins += 1
 
-f_format_probability(_wins, _closed) =>
+        curTPStreak += 1
+        curSLStreak := 0
+        maxTPStreak := math.max(maxTPStreak, curTPStreak)
+
+        tpHitNow := true
+        state := 0
+
+        if not na(lbE)
+            label.set_text(lbE, "BUY TP " + str.tostring(pEntry, format.mintick))
+            label.set_textcolor(lbE, cTP)
+
+        if not na(lbT)
+            label.set_text(lbT, "TP HIT " + str.tostring(pTP, format.mintick))
+            label.set_textcolor(lbT, cTP)
+
+// ================= ACTIVE SELL RESULT =================
+if state == -3 and bar_index > entryBar
+    if high >= pSL
+        nLos += 1
+        sellLoss += 1
+
+        curSLStreak += 1
+        curTPStreak := 0
+        maxSLStreak := math.max(maxSLStreak, curSLStreak)
+
+        slHitNow := true
+        state := 0
+
+        if not na(lbE)
+            label.set_text(lbE, "SELL SL " + str.tostring(pEntry, format.mintick))
+            label.set_textcolor(lbE, cSL)
+
+        if not na(lbS)
+            label.set_text(lbS, "SL HIT " + str.tostring(pSL, format.mintick))
+            label.set_textcolor(lbS, cSL)
+
+    else if low <= pTP
+        nWin += 1
+        sellWins += 1
+
+        curTPStreak += 1
+        curSLStreak := 0
+        maxTPStreak := math.max(maxTPStreak, curTPStreak)
+
+        tpHitNow := true
+        state := 0
+
+        if not na(lbE)
+            label.set_text(lbE, "SELL TP " + str.tostring(pEntry, format.mintick))
+            label.set_textcolor(lbE, cTP)
+
+        if not na(lbT)
+            label.set_text(lbT, "TP HIT " + str.tostring(pTP, format.mintick))
+            label.set_textcolor(lbT, cTP)
+
+// ================= FREEZE COMPLETED SETUP =================
+if tpHitNow or slHitNow
+    xFinal = bar_index + extendB
+
+    if not na(lnE)
+        line.set_x2(lnE, xFinal)
+
+    if not na(lnS)
+        line.set_x2(lnS, xFinal)
+
+    if not na(lnT)
+        line.set_x2(lnT, xFinal)
+
+    if not na(lbE)
+        label.set_x(lbE, xFinal)
+
+    if not na(lbS)
+        label.set_x(lbS, xFinal)
+
+    if not na(lbT)
+        label.set_x(lbT, xFinal)
+
+    // freeze active single body-break visual (it remains visible as history)
+    if not na(lnBodyBreakActive)
+        line.set_x2(lnBodyBreakActive, xFinal)
+    if not na(lbBodyBreakActive)
+        label.set_x(lbBodyBreakActive, xFinal)
+
+    // clear active references (history copies remain in arrays)
+    lnBodyBreakActive := na
+    lbBodyBreakActive := na
+
+// ================= CREATE NEW SETUP =================
+if state == 0 and (sigBuy or sigSell)
+    dir = sigBuy ? 1 : -1
+
+    lnE := na
+    lnS := na
+    lnT := na
+
+    lbE := na
+    lbS := na
+    lbT := na
+
+    setupDir := dir
+    setupBar := bar_index
+    entryBar := na
+
+    // --- levels: break body = trigger (body prev candle), entry = pending stop di wick
+    wickTop = high[1]
+    wickBot = low[1]
+    bodyTopPrev = math.max(o1, c1)
+    bodyBotPrev = math.min(o1, c1)
+
+    breakCalc = dir == 1 ? bodyTopPrev + bufBodyBreak : bodyBotPrev - bufBodyBreak
+    entryCalc = dir == 1 ? wickTop + bufEntry : wickBot - bufEntry
+
+    // guard: break body tidak boleh melewati level pending
+    if dir == 1 and breakCalc >= entryCalc
+        breakCalc := entryCalc - syminfo.mintick
+    if dir == -1 and breakCalc <= entryCalc
+        breakCalc := entryCalc + syminfo.mintick
+
+    // SL dari wick berlawanan, TP dari entry (wick)
+    slCalc = dir == 1 ? wickBot - bufSL : wickTop + bufSL
+
+    if dir == 1 and slCalc >= entryCalc
+        slCalc := entryCalc - math.max(bufSL, syminfo.mintick * 2)
+
+    if dir == -1 and slCalc <= entryCalc
+        slCalc := entryCalc + math.max(bufSL, syminfo.mintick * 2)
+
+    risk = math.abs(entryCalc - slCalc)
+    tpCalc = dir == 1 ? entryCalc + rrRatio * risk : entryCalc - rrRatio * risk
+
+    // draw body-break line (trigger level) when master display is on
+    if showLines
+        xStartBody = bar_index - 1
+        xRightBody = bar_index + extendB
+
+        lbStyle = bodyBreakLineStyleInput == "Dotted" ? line.style_dotted : bodyBreakLineStyleInput == "Dashed" ? line.style_dashed : line.style_solid
+        lnBodyBreakActive := line.new(xStartBody, breakCalc, xRightBody, breakCalc, xloc=xloc.bar_index, color=cBodyBreak, width=1, style=lbStyle)
+        array.push(arrBodyLn, lnBodyBreakActive)
+
+        lbBodyBreakActive := label.new(xRightBody, breakCalc, "BREAK BODY", xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_left, color=transparentLabel, textcolor=cBodyBreak, size=labelSize)
+        array.push(arrBodyLb, lbBodyBreakActive)
+
+        // limit history arrays to keepBodyHistory (which equals keepN)
+        while array.size(arrBodyLn) > keepBodyHistory
+            line.delete(array.shift(arrBodyLn))
+        while array.size(arrBodyLb) > keepBodyHistory
+            label.delete(array.shift(arrBodyLb))
+
+    if risk > syminfo.mintick and math.abs(tpCalc - entryCalc) > syminfo.mintick
+        pBreak := breakCalc
+        pEntry := entryCalc
+        pSL := slCalc
+        pTP := tpCalc
+
+        state := dir
+
+        xEntryStart = bar_index
+        xSLStart = bar_index - 1
+        xRight = bar_index + extendB
+
+        if showLines
+            lnE := line.new(xEntryStart, pEntry, xRight, pEntry, xloc=xloc.bar_index, color=cEntryLine, width=1, style=line.style_dashed)
+            lnS := line.new(xSLStart, pSL, xRight, pSL, xloc=xloc.bar_index, color=cSL, width=1, style=selectedLineStyle)
+            lnT := line.new(xEntryStart, pTP, xRight, pTP, xloc=xloc.bar_index, color=cTP, width=1, style=selectedLineStyle)
+
+            array.push(arrLn, lnE)
+            array.push(arrLn, lnS)
+            array.push(arrLn, lnT)
+
+            side = dir == 1 ? "BUY" : "SELL"
+            entryColor = dir == 1 ? cBuyText : cSellText
+
+            lbE := label.new(xRight, pEntry, "PENDING " + side + " " + str.tostring(pEntry, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=transparentLabel, textcolor=entryColor, size=labelSize)
+            lbS := label.new(xRight, pSL, "SL " + str.tostring(pSL, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=transparentLabel, textcolor=cSL, size=labelSize)
+            lbT := label.new(xRight, pTP, "TP " + str.tostring(pTP, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=transparentLabel, textcolor=cTP, size=labelSize)
+
+            array.push(arrLb, lbE)
+            array.push(arrLb, lbS)
+            array.push(arrLb, lbT)
+
+        while array.size(arrLn) > keepN * 3
+            line.delete(array.shift(arrLn))
+
+        while array.size(arrLb) > keepN * 3
+            label.delete(array.shift(arrLb))
+
+// ================= MASTER DISPLAY TOGGLE =================
+// Tidak perlu handler hapus manual: perubahan input memicu recalculate penuh
+// di Pine, semua line/label dibuat ulang dari nol sesuai showLines.
+
+// ================= PANEL HELPER =================
+f_prob(_wins, _closed) =>
     _closed > 0 ? str.tostring(float(_wins) / float(_closed) * 100.0, "#.##") + "%" : "n/a"
 
-// =====================================================
-// PARALLEL TRENDLINES
-// =====================================================
-f_parallel_valid(_i0, _p0, _i1, _p1, _i2, _p2, _i3, _p3) =>
-    float dx02 = math.max(math.abs(float(_i2 - _i0)), 1.0)
-    float dx13 = math.max(math.abs(float(_i3 - _i1)), 1.0)
-
-    float slope02 = (_p2 - _p0) / dx02
-    float slope13 = (_p3 - _p1) / dx13
-
-    bool sameDirection = slope02 * slope13 > 0
-    float baseSlope = math.max(math.abs(slope02), math.abs(slope13))
-    bool closeSlope = baseSlope <= 0.0 ? false : math.abs(slope02 - slope13) / baseSlope <= parallelTolerance
-
-    not useParallelSlopeRule or (sameDirection and closeSlope)
-
-f_project_y(_x1, _y1, _x2, _y2, _xEnd) =>
-    float dx = math.max(math.abs(float(_x2 - _x1)), 1.0)
-    float slope = (_y2 - _y1) / dx
-    _y1 + slope * float(_xEnd - _x1)
-
-f_draw_parallel_trendlines(_i0, _p0, _i1, _p1, _i2, _p2, _i3, _p3, _endX) =>
-    if showTrendLines
-        float y02End = f_project_y(_i0, _p0, _i2, _p2, _endX)
-        float y13End = f_project_y(_i1, _p1, _i3, _p3, _endX)
-
-        string key02 = "TL02_" + str.tostring(_i0) + "_" + str.tostring(_i2)
-        string key13 = "TL13_" + str.tostring(_i1) + "_" + str.tostring(_i3)
-
-        f_upsert_line(key02, _i0, _p0, _endX, y02End, neutralColor, line.style_solid, drawingLineWidth, extend.none)
-        f_upsert_line(key13, _i1, _p1, _endX, y13End, neutralColor, line.style_solid, drawingLineWidth, extend.none)
-
-// =====================================================
-// DRAW FIBO LINES
-// =====================================================
-f_draw_wave2_fib618(_i0, _i1, _i2, _p0, _p1, _isDowntrend) =>
-    if showFibLines
-        float fib618 = f_fib_price(_p0, _p1, wave2FibLevel)
-        float fib50  = f_fib_price(_p0, _p1, wave2FibLevel2)
-
-        string waveKey = str.tostring(_i0) + "_" + str.tostring(_i1)
-        string lineKey618 = "FIB2_0618_LINE_" + waveKey
-        string lineKey50  = "FIB2_050_LINE_" + waveKey
-
-        f_new_line_once(lineKey618, _i0, fib618, _i2, fib618, wave2FibColor, line.style_dashed, drawingLineWidth, extend.none)
-        f_new_line_once(lineKey50, _i0, fib50, _i2, fib50, wave2FibColor, line.style_dashed, drawingLineWidth, extend.none)
-
-f_draw_entry_fib1618(_i1, _i3, _p1, _p2, _isDowntrend) =>
-    if showFibLines and showEntryFib1618
-        float fib1618 = f_entry_1618_price(_p1, _p2)
-        int labelX    = f_mid_x(_i1, _i3)
-        float labelY  = fib1618
-        string directionKey = _isDowntrend ? "D_" : "U_"
-
-        string lineKey = "FIB3_LINE_" + directionKey + str.tostring(_i3)
-        string lblKey  = "FIB3_LABEL_" + directionKey + str.tostring(_i3)
-
-        f_new_line_once(lineKey, _i1, fib1618, _i3, fib1618, fib1618Color, line.style_dashed, drawingLineWidth, extend.none)
-
-        f_new_label_once_sized(
-             lblKey,
-             labelX,
-             labelY,
-             "1.618\n" + f_price_text(fib1618),
-             _isDowntrend ? label.style_label_up : label.style_label_down,
-             normalLabelColor,
-             f_label_size(drawingLabelSizeInput)
-         )
-
-f_draw_entry_trigger_fib(_i1, _i3, _p1, _p2, _isDowntrend) =>
-    if showFibLines and useEntryFibBarrier
-        float triggerPrice = f_fib_price(_p1, _p2, entryTriggerFibLevel)
-        int labelX = f_mid_x(_i1, _i3)
-        string directionKey = _isDowntrend ? "D_" : "U_"
-        string lineKey = "ENTRY_TRIGGER_LINE_" + directionKey + str.tostring(_i3)
-        string lblKey = "ENTRY_TRIGGER_LABEL_" + directionKey + str.tostring(_i3)
-        string triggerText = "TRIGGER " + str.tostring(entryTriggerFibLevel, "#.###") + "\n" + f_price_text(triggerPrice)
-
-        f_new_line_once(lineKey, _i1, triggerPrice, _i3, triggerPrice, fib1618Color, line.style_dashed, drawingLineWidth, extend.none)
-        f_new_label_once_sized(
-             lblKey,
-             labelX,
-             triggerPrice,
-             triggerText,
-             _isDowntrend ? label.style_label_up : label.style_label_down,
-             normalLabelColor,
-             f_label_size(drawingLabelSizeInput)
-         )
-
-f_draw_wave3_neg027(_i2, _i3, _p2, _p3, _isDowntrend) =>
-    if showFibLines
-        float fibNeg027 = f_wave3_neg027_price(_p2, _p3)
-        int endX = _i3 + 30
-        int labelX = f_mid_x(_i3, endX)
-        float labelY = _isDowntrend ? fibNeg027 - atrVal * 0.10 : fibNeg027 + atrVal * 0.10
-        string directionKey = _isDowntrend ? "D_" : "U_"
-        string lineKey = "FIB3_NEG027_LINE_" + directionKey + str.tostring(_i3)
-        string lblKey = "FIB3_NEG027_LABEL_" + directionKey + str.tostring(_i3)
-
-        f_new_line_once(lineKey, _i3, fibNeg027, endX, fibNeg027, targetFibColor, line.style_dashed, drawingLineWidth, extend.none)
-
-        f_new_label_once_sized(
-             lblKey,
-             labelX,
-             labelY,
-             "-0.27\n" + f_price_text(fibNeg027),
-             _isDowntrend ? label.style_label_up : label.style_label_down,
-             normalLabelColor,
-             f_label_size(drawingLabelSizeInput)
-         )
-
-f_draw_wave4_fib618_right(_i2, _i3, _p2, _p3, _isDowntrend) =>
-    if showFibLines
-        float fib4A = f_wave4_fib_price(_p2, _p3)
-        float fib4B = f_wave4_fib2_price(_p2, _p3)
-        int endX = _i3 + 30
-        int labelX = f_mid_x(_i3, endX)
-        float labelYA = _isDowntrend ? fib4A + atrVal * 0.10 : fib4A - atrVal * 0.10
-        float labelYB = _isDowntrend ? fib4B + atrVal * 0.10 : fib4B - atrVal * 0.10
-
-        string directionKey = _isDowntrend ? "D_" : "U_"
-        string waveKey = directionKey + str.tostring(_i2)
-        string lineKeyA = "FIB4R_0618_LINE_" + waveKey
-        string lblKeyA  = "FIB4R_0618_LABEL_" + waveKey
-        string lineKeyB = "FIB4R_0786_LINE_" + waveKey
-        string lblKeyB  = "FIB4R_0786_LABEL_" + waveKey
-
-        f_new_line_once(lineKeyA, _i3, fib4A, endX, fib4A, targetFibColor, line.style_dashed, drawingLineWidth, extend.none)
-        f_new_line_once(lineKeyB, _i3, fib4B, endX, fib4B, targetFibColor, line.style_dashed, drawingLineWidth, extend.none)
-
-        f_new_label_once_sized(
-             lblKeyA,
-             labelX,
-             labelYA,
-             "0.618\n" + f_price_text(fib4A),
-             _isDowntrend ? label.style_label_down : label.style_label_up,
-             normalLabelColor,
-             f_label_size(drawingLabelSizeInput)
-         )
-
-        f_new_label_once_sized(
-             lblKeyB,
-             labelX,
-             labelYB,
-             "0.786\n" + f_price_text(fib4B),
-             _isDowntrend ? label.style_label_down : label.style_label_up,
-             normalLabelColor,
-             f_label_size(drawingLabelSizeInput)
-         )
-
-// =====================================================
-// ADD SWING
-// =====================================================
-f_add_swing(_type, _idx, _price) =>
-    bool changed = false
-    int sz = array.size(swingPrice)
-
-    if sz == 0
-        array.push(swingPrice, _price)
-        array.push(swingIndex, _idx)
-        array.push(swingType, _type)
-        changed := true
-    else
-        int lastType = array.get(swingType, sz - 1)
-        int lastIndex = array.get(swingIndex, sz - 1)
-        float lastPrice = array.get(swingPrice, sz - 1)
-
-        if _type == lastType
-            bool replaceHigh = _type == 1 and _price > lastPrice
-            bool replaceLow  = _type == -1 and _price < lastPrice
-
-            if replaceHigh or replaceLow
-                array.set(swingPrice, sz - 1, _price)
-                array.set(swingIndex, sz - 1, _idx)
-                array.set(swingType, sz - 1, _type)
-                changed := true
-        else
-            int swingDistance = math.abs(_idx - lastIndex)
-            bool distanceOK = swingDistance >= pivotLen and swingDistance <= maxSwingBars
-            if distanceOK
-                array.push(swingPrice, _price)
-                array.push(swingIndex, _idx)
-                array.push(swingType, _type)
-                changed := true
-
-    while array.size(swingPrice) > 50
-        array.shift(swingPrice)
-        array.shift(swingIndex)
-        array.shift(swingType)
-
-    changed
-
-// =====================================================
-// DRAW BASIC WAVE LABELS
-// =====================================================
-f_label_wave(_num, _i, _p, _style) =>
-    string key = "WAVE_" + _num + "_" + str.tostring(_i)
-    f_new_label_once(key, _i, _p, _num, _style, normalLabelColor)
-
-f_label_entry(_i1, _i3, _entryPrice, _isDowntrend) =>
-    int entryX = f_mid_x(_i1, _i3)
-    string directionKey = _isDowntrend ? "D_" : "U_"
-    string key = "ENTRY3_" + directionKey + str.tostring(_i3)
-    string entryText = (_isDowntrend ? "BUY ENTRY" : "SELL ENTRY") + "\n" + f_price_text(_entryPrice)
-    f_new_label_once_sized(
-         key,
-         entryX,
-         _entryPrice,
-         entryText,
-         _isDowntrend ? label.style_label_up : label.style_label_down,
-         normalLabelColor,
-         f_label_size(drawingLabelSizeInput)
-     )
-
-f_draw_entry_price_line(_i3, _entryPrice, _isDowntrend) =>
-    int endX = _i3 + 30
-    int labelX = f_mid_x(_i3, endX)
-    string directionKey = _isDowntrend ? "D_" : "U_"
-    string lineKey = "ENTRY_PRICE_LINE_" + directionKey + str.tostring(_i3)
-    string lblKey = "ENTRY_PRICE_LABEL_" + directionKey + str.tostring(_i3)
-    color entryColor = _isDowntrend ? entryBuyColor : entrySellColor
-    string entryText = (_isDowntrend ? "BUY ENTRY" : "SELL ENTRY") + "\n" + f_price_text(_entryPrice)
-
-    f_new_line_once(lineKey, _i3, _entryPrice, endX, _entryPrice, entryColor, line.style_solid, drawingLineWidth, extend.none)
-    f_new_label_once_sized(
-         lblKey,
-         labelX,
-         _entryPrice,
-         entryText,
-         _isDowntrend ? label.style_label_up : label.style_label_down,
-         normalLabelColor,
-         f_label_size(drawingLabelSizeInput)
-     )
-
-f_wave_line(_iA, _pA, _iB, _pB, _clr) =>
-    string key = "SEG_" + str.tostring(_iA) + "_" + str.tostring(_iB)
-    f_new_line_once(key, _iA, _pA, _iB, _pB, _clr, line.style_solid, drawingLineWidth, extend.none)
-
-// =====================================================
-// DRAW 0-3 DOWNTREND
-// =====================================================
-f_draw_03_down(_i0, _p0, _i1, _p1, _i2, _p2, _i3, _p3, _showNeg027) =>
-    f_prepare_draw()
-
-    if showWaveLines
-        f_wave_line(_i0, _p0, _i1, _p1, downColor)
-        f_wave_line(_i1, _p1, _i2, _p2, downColor)
-        f_wave_line(_i2, _p2, _i3, _p3, downColor)
-
-    f_draw_parallel_trendlines(_i0, _p0, _i1, _p1, _i2, _p2, _i3, _p3, _i3)
-    f_draw_wave2_fib618(_i0, _i1, _i2, _p0, _p1, true)
-    f_draw_entry_fib1618(_i1, _i3, _p1, _p2, true)
-    f_draw_entry_trigger_fib(_i1, _i3, _p1, _p2, true)
-    f_draw_entry_price_line(_i3, _p3, true)
-    if _showNeg027
-        f_draw_wave3_neg027(_i2, _i3, _p2, _p3, true)
-    f_draw_wave4_fib618_right(_i2, _i3, _p2, _p3, true)
-    f_label_wave("0", _i0, _p0, label.style_label_down)
-    f_label_wave("1", _i1, _p1, label.style_label_up)
-    f_label_wave("2", _i2, _p2, label.style_label_down)
-
-// =====================================================
-// DRAW 0-3 UPTREND
-// =====================================================
-f_draw_03_up(_i0, _p0, _i1, _p1, _i2, _p2, _i3, _p3, _showNeg027) =>
-    f_prepare_draw()
-
-    if showWaveLines
-        f_wave_line(_i0, _p0, _i1, _p1, upColor)
-        f_wave_line(_i1, _p1, _i2, _p2, upColor)
-        f_wave_line(_i2, _p2, _i3, _p3, upColor)
-
-    f_draw_parallel_trendlines(_i0, _p0, _i1, _p1, _i2, _p2, _i3, _p3, _i3)
-    f_draw_wave2_fib618(_i0, _i1, _i2, _p0, _p1, false)
-    f_draw_entry_fib1618(_i1, _i3, _p1, _p2, false)
-    f_draw_entry_trigger_fib(_i1, _i3, _p1, _p2, false)
-    f_draw_entry_price_line(_i3, _p3, false)
-    if _showNeg027
-        f_draw_wave3_neg027(_i2, _i3, _p2, _p3, false)
-    f_draw_wave4_fib618_right(_i2, _i3, _p2, _p3, false)
-    f_label_wave("0", _i0, _p0, label.style_label_up)
-    f_label_wave("1", _i1, _p1, label.style_label_down)
-    f_label_wave("2", _i2, _p2, label.style_label_up)
-
-// =====================================================
-// PIVOT DETECTION
-// =====================================================
-ph = ta.pivothigh(high, rawPivotLen, rawPivotLen)
-pl = ta.pivotlow(low, rawPivotLen, rawPivotLen)
-
-bool swingChanged = false
-
-if not na(ph)
-    swingChanged := f_add_swing(1, bar_index - rawPivotLen, ph) or swingChanged
-
-if not na(pl)
-    swingChanged := f_add_swing(-1, bar_index - rawPivotLen, pl) or swingChanged
-
-// =====================================================
-// SIGNAL FLAGS
-// =====================================================
-bool bearWave3EntrySignal = false
-bool bullWave3EntrySignal = false
-
-// =====================================================
-// ACTIVE 0-1-2 CANDIDATE
-// Simpan hanya kandidat 0-1-2 terbaru. Signal muncul saat harga break Wave 1.
-// =====================================================
-if swingChanged and array.size(swingPrice) >= 3
-    int b3 = array.size(swingPrice) - 3
-
-    int t0 = array.get(swingType, b3)
-    int t1 = array.get(swingType, b3 + 1)
-    int t2 = array.get(swingType, b3 + 2)
-
-    float p0 = array.get(swingPrice, b3)
-    float p1 = array.get(swingPrice, b3 + 1)
-    float p2 = array.get(swingPrice, b3 + 2)
-
-    int i0 = array.get(swingIndex, b3)
-    int i1 = array.get(swingIndex, b3 + 1)
-    int i2 = array.get(swingIndex, b3 + 2)
-
-    bool wave2Valid = f_wave2_in_0618_zone(p2, p0, p1)
-    bool wave2DownBreached = f_wave2_breached_0618_between(i1, i2, p0, p1, false)
-    bool wave2UpBreached = f_wave2_breached_0618_between(i1, i2, p0, p1, true)
-
-    bool down012 =
-         t0 == 1 and
-         t1 == -1 and
-         t2 == 1 and
-         p2 < p0 and
-         (na(invalidBearI1) or invalidBearI1 != i1) and
-         (na(triggeredBearI1) or triggeredBearI1 != i1) and
-         not wave2DownBreached and
-         wave2Valid
-
-    bool up012 =
-         t0 == -1 and
-         t1 == 1 and
-         t2 == -1 and
-         p2 > p0 and
-         (na(invalidBullI1) or invalidBullI1 != i1) and
-         (na(triggeredBullI1) or triggeredBullI1 != i1) and
-         not wave2UpBreached and
-         wave2Valid
-
-    if down012
-        activeBear012 := true
-        activeBearTriggered := false
-        activeBearI0 := i0
-        activeBearI1 := i1
-        activeBearI2 := i2
-        activeBearP0 := p0
-        activeBearP1 := p1
-        activeBearP2 := p2
-
-    if up012
-        activeBull012 := true
-        activeBullTriggered := false
-        activeBullI0 := i0
-        activeBullI1 := i1
-        activeBullI2 := i2
-        activeBullP0 := p0
-        activeBullP1 := p1
-        activeBullP2 := p2
-
-// =====================================================
-// REALTIME WAVE 2 CANDIDATE
-// Jika Wave 0-1 sudah valid dan harga masuk zona 0.5-0.618,
-// kandidat Wave 2 dibuat tanpa menunggu pivot kanan.
-// =====================================================
-if useAggressiveWave3 and array.size(swingPrice) >= 2
-    int b2 = array.size(swingPrice) - 2
-
-    int t0 = array.get(swingType, b2)
-    int t1 = array.get(swingType, b2 + 1)
-
-    float p0 = array.get(swingPrice, b2)
-    float p1 = array.get(swingPrice, b2 + 1)
-
-    int i0 = array.get(swingIndex, b2)
-    int i1 = array.get(swingIndex, b2 + 1)
-
-    bool down01 = t0 == 1 and t1 == -1
-    bool up01 = t0 == -1 and t1 == 1
-
-    bool bearWave2Breached = down01 and f_wave2_breached_0618(p0, p1, false)
-    bool bullWave2Breached = up01 and f_wave2_breached_0618(p0, p1, true)
-    bool bearPairValid = na(invalidBearI1) or invalidBearI1 != i1
-    bool bullPairValid = na(invalidBullI1) or invalidBullI1 != i1
-    bool bearPairNotTriggered = na(triggeredBearI1) or triggeredBearI1 != i1
-    bool bullPairNotTriggered = na(triggeredBullI1) or triggeredBullI1 != i1
-
-    if bearWave2Breached
-        invalidBearI1 := i1
-        if activeBearI1 == i1
-            activeBear012 := false
-
-    if bullWave2Breached
-        invalidBullI1 := i1
-        if activeBullI1 == i1
-            activeBull012 := false
-
-    float realtimeBearP2 = down01 and bearPairValid and bearPairNotTriggered and not bearWave2Breached ? f_realtime_wave2_price(p0, p1, false) : na
-    float realtimeBullP2 = up01 and bullPairValid and bullPairNotTriggered and not bullWave2Breached ? f_realtime_wave2_price(p0, p1, true) : na
-
-    if not na(realtimeBearP2)
-        activeBear012 := true
-        activeBearTriggered := false
-        activeBearI0 := i0
-        activeBearI1 := i1
-        activeBearI2 := bar_index
-        activeBearP0 := p0
-        activeBearP1 := p1
-        activeBearP2 := realtimeBearP2
-
-    if not na(realtimeBullP2)
-        activeBull012 := true
-        activeBullTriggered := false
-        activeBullI0 := i0
-        activeBullI1 := i1
-        activeBullI2 := bar_index
-        activeBullP0 := p0
-        activeBullP1 := p1
-        activeBullP2 := realtimeBullP2
-
-// =====================================================
-// AGGRESSIVE WAVE 3 ENTRY
-// Trigger saat harga break Wave 1 dari kandidat 0-1-2 aktif.
-// =====================================================
-if showEarlyWave3Entry and useAggressiveWave3
-    int i3 = bar_index
-    bool entryDistanceOK = na(lastEntry3) or i3 - lastEntry3 >= minBarsBetweenEntry
-
-    if activeBear012 and not activeBearTriggered
-        if f_wave2_breached_0618(activeBearP0, activeBearP1, false) or f_wave2_breached_0618_between(activeBearI1, i3, activeBearP0, activeBearP1, false)
-            invalidBearI1 := activeBearI1
-            activeBear012 := false
-        else
-            float wave3Price = low
-            float triggerPrice = useEntryFibBarrier ? f_fib_price(activeBearP1, activeBearP2, entryTriggerFibLevel) : activeBearP1
-            bool touchEntry = low <= triggerPrice
-            int wave3Distance = i3 - activeBearI2
-            bool wave3DistanceOK = wave3Distance >= pivotLen and wave3Distance <= maxSwingBars
-            bool parallelValid = f_parallel_valid(activeBearI0, activeBearP0, activeBearI1, activeBearP1, activeBearI2, activeBearP2, i3, wave3Price)
-
-            if touchEntry and wave3DistanceOK and parallelValid and entryDistanceOK
-                f_draw_03_down(activeBearI0, activeBearP0, activeBearI1, activeBearP1, activeBearI2, activeBearP2, i3, wave3Price, true)
-                float statsSL = f_stats_sl_price(activeBearP2, wave3Price)
-                float statsTP = f_stats_tp_price(activeBearP2, wave3Price)
-                f_add_stats_trade("BUY_" + str.tostring(activeBearI1) + "_" + str.tostring(i3), 1, i3, wave3Price, statsSL, statsTP)
-                wave3AlertSide := "BUY"
-                wave3AlertEntry := wave3Price
-                wave3AlertSL := statsSL
-                wave3AlertTP := statsTP
-                lastBearEntry3 := i3
-                lastEntry3 := i3
-                triggeredBearI1 := activeBearI1
-                activeBearTriggered := true
-                activeBear012 := false
-                bearWave3EntrySignal := true
-
-    if activeBull012 and not activeBullTriggered
-        if f_wave2_breached_0618(activeBullP0, activeBullP1, true) or f_wave2_breached_0618_between(activeBullI1, i3, activeBullP0, activeBullP1, true)
-            invalidBullI1 := activeBullI1
-            activeBull012 := false
-        else
-            float wave3Price = high
-            float triggerPrice = useEntryFibBarrier ? f_fib_price(activeBullP1, activeBullP2, entryTriggerFibLevel) : activeBullP1
-            bool touchEntry = high >= triggerPrice
-            int wave3Distance = i3 - activeBullI2
-            bool wave3DistanceOK = wave3Distance >= pivotLen and wave3Distance <= maxSwingBars
-            bool parallelValid = f_parallel_valid(activeBullI0, activeBullP0, activeBullI1, activeBullP1, activeBullI2, activeBullP2, i3, wave3Price)
-
-            if touchEntry and wave3DistanceOK and parallelValid and entryDistanceOK
-                f_draw_03_up(activeBullI0, activeBullP0, activeBullI1, activeBullP1, activeBullI2, activeBullP2, i3, wave3Price, true)
-                float statsSL = f_stats_sl_price(activeBullP2, wave3Price)
-                float statsTP = f_stats_tp_price(activeBullP2, wave3Price)
-                f_add_stats_trade("SELL_" + str.tostring(activeBullI1) + "_" + str.tostring(i3), -1, i3, wave3Price, statsSL, statsTP)
-                wave3AlertSide := "SELL"
-                wave3AlertEntry := wave3Price
-                wave3AlertSL := statsSL
-                wave3AlertTP := statsTP
-                lastBullEntry3 := i3
-                lastEntry3 := i3
-                triggeredBullI1 := activeBullI1
-                activeBullTriggered := true
-                activeBull012 := false
-                bullWave3EntrySignal := true
-
-// =====================================================
-// EARLY 0-3 DETECTION
-// =====================================================
-if swingChanged and array.size(swingPrice) >= 4
-    int b4 = array.size(swingPrice) - 4
-
-    int t0 = array.get(swingType, b4)
-    int t1 = array.get(swingType, b4 + 1)
-    int t2 = array.get(swingType, b4 + 2)
-    int t3 = array.get(swingType, b4 + 3)
-
-    float p0 = array.get(swingPrice, b4)
-    float p1 = array.get(swingPrice, b4 + 1)
-    float p2 = array.get(swingPrice, b4 + 2)
-    float p3 = array.get(swingPrice, b4 + 3)
-
-    int i0 = array.get(swingIndex, b4)
-    int i1 = array.get(swingIndex, b4 + 1)
-    int i2 = array.get(swingIndex, b4 + 2)
-    int i3 = array.get(swingIndex, b4 + 3)
-
-    bool wave2Valid    = f_wave2_in_0618_zone(p2, p0, p1)
-    bool wave2DownBreached = f_wave2_breached_0618_between(i1, i3, p0, p1, false)
-    bool wave2UpBreached = f_wave2_breached_0618_between(i1, i3, p0, p1, true)
-    bool parallelValid = f_parallel_valid(i0, p0, i1, p1, i2, p2, i3, p3)
-
-    bool entryDownValid = f_entry_break_fib1_and_beyond_1618(p3, p1, p2, true)
-    bool entryUpValid   = f_entry_break_fib1_and_beyond_1618(p3, p1, p2, false)
-
-    bool down03 =
-         t0 == 1 and
-         t1 == -1 and
-         t2 == 1 and
-         t3 == -1 and
-         p2 < p0 and
-         p3 < p1 and
-         wave2Valid and
-         not wave2DownBreached and
-         parallelValid and
-         entryDownValid
-
-    bool up03 =
-         t0 == -1 and
-         t1 == 1 and
-         t2 == -1 and
-         t3 == 1 and
-         p2 > p0 and
-         p3 > p1 and
-         wave2Valid and
-         not wave2UpBreached and
-         parallelValid and
-         entryUpValid
-
-    bool bearDistanceOK = (na(lastBearEntry3) or i3 - lastBearEntry3 >= minBarsBetweenEntry) and (na(lastEntry3) or i3 - lastEntry3 >= minBarsBetweenEntry)
-    bool bullDistanceOK = (na(lastBullEntry3) or i3 - lastBullEntry3 >= minBarsBetweenEntry) and (na(lastEntry3) or i3 - lastEntry3 >= minBarsBetweenEntry)
-
-    if not useAggressiveWave3 and showEarlyWave3Entry and down03 and bearDistanceOK
-        f_draw_03_down(i0, p0, i1, p1, i2, p2, i3, p3, true)
-        float statsSL = f_stats_sl_price(p2, p3)
-        float statsTP = f_stats_tp_price(p2, p3)
-        f_add_stats_trade("BUY_" + str.tostring(i1) + "_" + str.tostring(i3), 1, i3, p3, statsSL, statsTP)
-        wave3AlertSide := "BUY"
-        wave3AlertEntry := p3
-        wave3AlertSL := statsSL
-        wave3AlertTP := statsTP
-        lastBearEntry3 := i3
-        lastEntry3 := i3
-        bearWave3EntrySignal := true
-
-    if not useAggressiveWave3 and showEarlyWave3Entry and up03 and bullDistanceOK
-        f_draw_03_up(i0, p0, i1, p1, i2, p2, i3, p3, true)
-        float statsSL = f_stats_sl_price(p2, p3)
-        float statsTP = f_stats_tp_price(p2, p3)
-        f_add_stats_trade("SELL_" + str.tostring(i1) + "_" + str.tostring(i3), -1, i3, p3, statsSL, statsTP)
-        wave3AlertSide := "SELL"
-        wave3AlertEntry := p3
-        wave3AlertSL := statsSL
-        wave3AlertTP := statsTP
-        lastBullEntry3 := i3
-        lastEntry3 := i3
-        bullWave3EntrySignal := true
-
-// =====================================================
-// PROBABILITY ENGINE
-// Cek trade virtual dari candle setelah entry untuk menghindari urutan intrabar yang tidak diketahui.
-// Jika TP dan SL kena pada candle yang sama, SL dihitung lebih dulu.
-// =====================================================
-if showProbabilityPanel and array.size(statsOpenDir) > 0
-    int tradeIdx = array.size(statsOpenDir) - 1
-    while tradeIdx >= 0
-        int tradeDir = array.get(statsOpenDir, tradeIdx)
-        int tradeBar = array.get(statsOpenBar, tradeIdx)
-        float tradeSL = array.get(statsOpenSL, tradeIdx)
-        float tradeTP = array.get(statsOpenTP, tradeIdx)
-
-        if bar_index > tradeBar
-            bool tpHit = tradeDir == 1 ? high >= tradeTP : low <= tradeTP
-            bool slHit = tradeDir == 1 ? low <= tradeSL : high >= tradeSL
-
-            if tpHit or slHit
-                array.push(statsClosedDir, tradeDir)
-                array.push(statsClosedResult, slHit ? -1 : 1)
-                array.remove(statsOpenDir, tradeIdx)
-                array.remove(statsOpenKey, tradeIdx)
-                array.remove(statsOpenEntry, tradeIdx)
-                array.remove(statsOpenSL, tradeIdx)
-                array.remove(statsOpenTP, tradeIdx)
-                array.remove(statsOpenBar, tradeIdx)
-
-        tradeIdx -= 1
-
-if showProbabilityPanel and barstate.islast
-    int totalBuy = 0
-    int totalSell = 0
-    int buyWins = 0
-    int buyLosses = 0
-    int sellWins = 0
-    int sellLosses = 0
-    int currentTPStreak = 0
-    int currentSLStreak = 0
-    int maxTPStreak = 0
-    int maxSLStreak = 0
-
-    int totalTrades = array.size(statsAllDir)
-    if totalTrades > 0
-        for statIdx = 0 to totalTrades - 1
-            int dir = array.get(statsAllDir, statIdx)
-            totalBuy += dir == 1 ? 1 : 0
-            totalSell += dir == -1 ? 1 : 0
-
-    int closedTrades = array.size(statsClosedResult)
-    if closedTrades > 0
-        for statIdx = 0 to closedTrades - 1
-            int dir = array.get(statsClosedDir, statIdx)
-            int result = array.get(statsClosedResult, statIdx)
-            buyWins += dir == 1 and result == 1 ? 1 : 0
-            buyLosses += dir == 1 and result == -1 ? 1 : 0
-            sellWins += dir == -1 and result == 1 ? 1 : 0
-            sellLosses += dir == -1 and result == -1 ? 1 : 0
-            if result == 1
-                currentTPStreak += 1
-                currentSLStreak := 0
-                maxTPStreak := math.max(maxTPStreak, currentTPStreak)
-            if result == -1
-                currentSLStreak += 1
-                currentTPStreak := 0
-                maxSLStreak := math.max(maxSLStreak, currentSLStreak)
-
-    int totalWins = buyWins + sellWins
-    int totalLosses = buyLosses + sellLosses
-    int openTrades = array.size(statsOpenDir)
-    int closedBuy = buyWins + buyLosses
-    int closedSell = sellWins + sellLosses
-
-    color transparentBg = color.new(color.black, 100)
-    string cellPad = " "
-    string panelBodyTextSize = size.normal
-    string panelHeaderFooterTextSize = size.normal
-
-    if not probabilityTableOverallMerged
+// ================= RESULTS PANEL =================
+rows = 14
+var table probabilityTable = table.new(position.top_right, 2, rows, border_color=color.new(color.gray, 40), border_width=1, frame_color=color.new(color.gray, 20), frame_width=1)
+var bool probabilityTableMerged = false
+
+if barstate.islast
+    if not probabilityTableMerged
         table.merge_cells(probabilityTable, 0, 0, 1, 0)
         table.merge_cells(probabilityTable, 0, 1, 1, 1)
-        table.merge_cells(probabilityTable, 0, 11, 1, 11)
-        probabilityTableOverallMerged := true
+        table.merge_cells(probabilityTable, 0, 2, 1, 2)
+        table.merge_cells(probabilityTable, 0, 6, 1, 6)
+        table.merge_cells(probabilityTable, 0, rows - 1, 1, rows - 1)
+        probabilityTableMerged := true
 
-    table.cell(probabilityTable, 0, 0, "HoekaGata Wave3 Pro", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_center, text_size=panelHeaderFooterTextSize)
-    table.cell(probabilityTable, 0, 1, "by Syakir Arslan", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_center, text_size=size.small)
-    table.cell(probabilityTable, 0, 2, cellPad + "Pivot Range", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 2, cellPad + str.tostring(pivotLen) + " / " + str.tostring(maxSwingBars), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 3, cellPad + "Trades", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 3, cellPad + str.tostring(totalTrades), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 4, cellPad + "Closed / Open", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 4, cellPad + str.tostring(closedTrades) + " / " + str.tostring(openTrades), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 5, cellPad + "Buy", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 5, cellPad + f_format_probability(buyWins, closedBuy) + " (" + str.tostring(totalBuy) + ")", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 6, cellPad + "Sell", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 6, cellPad + f_format_probability(sellWins, closedSell) + " (" + str.tostring(totalSell) + ")", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 7, cellPad + "TP Hits", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 7, cellPad + str.tostring(totalWins), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 8, cellPad + "SL Hits", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 8, cellPad + str.tostring(totalLosses), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 9, cellPad + "TP Streak", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 9, cellPad + str.tostring(maxTPStreak), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 10, cellPad + "SL Streak", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 1, 10, cellPad + str.tostring(maxSLStreak), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=panelBodyTextSize)
-    table.cell(probabilityTable, 0, 11, "Overall: " + f_format_probability(totalWins, closedTrades), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_center, text_size=panelHeaderFooterTextSize)
+    if showTable
+        closedTrades = nWin + nLos
+        closedBuy = buyWins + buyLoss
+        closedSell = sellWins + sellLoss
 
-// =====================================================
-// ALERT
-// =====================================================
-bool wave3BuyAlertAllowed = bearWave3EntrySignal and enableBuyAlerts
-bool wave3SellAlertAllowed = bullWave3EntrySignal and enableSellAlerts
+        statusText = state == 3 ? "BUY" : state == -3 ? "SELL" : state == 1 or state == 2 ? "PENDING BUY" : state == -1 or state == -2 ? "PENDING SELL" : "NONE"
+        statusColor = state == 3 ? cBuyText : state == -3 ? cSellText : state == 1 or state == 2 ? cBuyText : state == -1 or state == -2 ? cSellText : color.silver
 
-if wave3BuyAlertAllowed or wave3SellAlertAllowed
-    alert(
-         wave3AlertSide + " | Entry: " + f_price_text(wave3AlertEntry) +
-         " | SL: " + f_price_text(wave3AlertSL) +
-         " | TP: " + f_price_text(wave3AlertTP) +
-         " | " + syminfo.ticker + " | TF " + timeframe.period,
-         alert.freq_once_per_bar
-     )
+        transparentBg = color.new(color.black, 100)
+        blockBg = color.new(color.gray, 85)
+        neutralColor = color.white
+        positiveColor = #26A69A
+        negativeColor = #EF5350
 
-alertcondition(
-     wave3BuyAlertAllowed or wave3SellAlertAllowed,
-     title="Wave 3 Terbentuk",
-     message="Wave 3 terbentuk on {{ticker}} {{interval}}. Use Any alert() function call for Entry, SL, and TP."
- )
+        bodySize = panelSize
+        headerSize = panelSize
+        blockSize = panelSize
+        pad = " "
 
-alertcondition(
-     wave3BuyAlertAllowed,
-     title="Wave 3 BUY Terbentuk",
-     message="Wave 3 BUY terbentuk on {{ticker}} {{interval}}. Use Any alert() function call for Entry, SL, and TP."
- )
+        table.cell(probabilityTable, 0, 0, "Engulfing Breakout", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_center, text_size=headerSize)
+        table.cell(probabilityTable, 0, 1, "By Syakir Arslan (modified)", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_center, text_size=panelSize)
 
-alertcondition(
-     wave3SellAlertAllowed,
-     title="Wave 3 SELL Terbentuk",
-     message="Wave 3 SELL terbentuk on {{ticker}} {{interval}}. Use Any alert() function call for Entry, SL, and TP."
- )
+        table.cell(probabilityTable, 0, 2, "SETUP", text_color=neutralColor, bgcolor=blockBg, text_halign=text.align_center, text_size=blockSize)
+
+        table.cell(probabilityTable, 0, 3, pad + "R:R", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+        table.cell(probabilityTable, 1, 3, pad + "1:" + str.tostring(rrRatio, "#.#"), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+
+        table.cell(probabilityTable, 0, 4, pad + "Status", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+        table.cell(probabilityTable, 1, 4, pad + statusText, text_color=statusColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+
+        table.cell(probabilityTable, 0, 5, pad + "Cancelled", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+        table.cell(probabilityTable, 1, 5, pad + str.tostring(nCancelled), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+
+        table.cell(probabilityTable, 0, 6, "RESULTS", text_color=neutralColor, bgcolor=blockBg, text_halign=text.align_center, text_size=blockSize)
+
+        table.cell(probabilityTable, 0, 7, pad + "Signals", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+        table.cell(probabilityTable, 1, 7, pad + str.tostring(nSig), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+
+        table.cell(probabilityTable, 0, 8, pad + "Entries", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+        table.cell(probabilityTable, 1, 8, pad + str.tostring(nRun), text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+
+        table.cell(probabilityTable, 0, 9, pad + "Buy WR", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+        table.cell(probabilityTable, 1, 9, pad + f_prob(buyWins, closedBuy) + " (" + str.tostring(nBuyRun) + ")", text_color=cBuyText, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+
+        table.cell(probabilityTable, 0, 10, pad + "Sell WR", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+        table.cell(probabilityTable, 1, 10, pad + f_prob(sellWins, closedSell) + " (" + str.tostring(nSellRun) + ")", text_color=cSellText, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+
+        table.cell(probabilityTable, 0, 11, pad + "Max TP Run", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+        table.cell(probabilityTable, 1, 11, pad + str.tostring(maxTPStreak), text_color=positiveColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+
+        table.cell(probabilityTable, 0, 12, pad + "Max SL Run", text_color=neutralColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+        table.cell(probabilityTable, 1, 12, pad + str.tostring(maxSLStreak), text_color=negativeColor, bgcolor=transparentBg, text_halign=text.align_left, text_size=bodySize)
+
+        table.cell(probabilityTable, 0, 13, "Overall: " + f_prob(nWin, closedTrades), text_color=neutralColor, bgcolor=blockBg, text_halign=text.align_center, text_size=headerSize)
+    else
+        table.clear(probabilityTable, 0, 0, 1, rows - 1)
+
+// ================= ALERT CONDITIONS =================
+alertcondition(armedNow, title="Break Body Triggered", message="Break body touched - pending order armed at wick.")
+alertcondition(hitBuy, title="BUY Entry Active", message="BUY Entry is active.")
+alertcondition(hitSell, title="SELL Entry Active", message="SELL Entry is active.")
+alertcondition(tpHitNow, title="Take Profit Hit", message="The active position reached Take Profit.")
+alertcondition(slHitNow, title="Stop Loss Hit", message="The active position reached Stop Loss.")
+alertcondition(cancelledNow, title="Setup Cancelled", message="The setup was cancelled before Entry.")
+
+// dynamic alerts
+if armedNow
+    armedSide = state == 2 ? "BUY" : "SELL"
+    alert(syminfo.ticker + " " + timeframe.period + " | BREAK BODY TRIGGERED " + armedSide + " | PENDING @ " + str.tostring(pEntry, format.mintick), alert.freq_once_per_bar)
+
+if hitBuy or hitSell
+    entrySide = hitBuy ? "BUY" : "SELL"
+    alert(syminfo.ticker + " " + timeframe.period + " | ENTRY " + entrySide + " @ " + str.tostring(pEntry, format.mintick) + " | SL " + str.tostring(pSL, format.mintick) + " | TP " + str.tostring(pTP, format.mintick), alert.freq_once_per_bar)
+
+if tpHitNow
+    resultSideTP = setupDir == 1 ? "BUY" : "SELL"
+    alert(syminfo.ticker + " " + timeframe.period + " | TP HIT " + resultSideTP + " @ " + str.tostring(pTP, format.mintick), alert.freq_once_per_bar)
+
+if slHitNow
+    resultSideSL = setupDir == 1 ? "BUY" : "SELL"
+    alert(syminfo.ticker + " " + timeframe.period + " | SL HIT " + resultSideSL + " @ " + str.tostring(pSL, format.mintick), alert.freq_once_per_bar)
+
+if cancelledNow
+    cancelledSideAlert = cancelledDir == 1 ? "BUY" : "SELL"
+    alert(syminfo.ticker + " " + timeframe.period + " | CANCELLED " + cancelledSideAlert + " | SL " + str.tostring(pSL, format.mintick), alert.freq_once_per_bar)

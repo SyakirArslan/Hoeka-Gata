@@ -4,8 +4,9 @@ Repository ini berisi trading system **HoekaGata Engulfing Breakout** untuk Meta
 TradingView: indikator MT5 sebagai signal engine, EA MT5 sebagai eksekutor, dan Pine Script sebagai
 sumber aturan sekaligus alat validasi visual.
 
-Selain itu repository juga menyimpan script Pine strategi **HoekaGata Wave3 Pro** (Elliott Wave 0-3),
-yaitu strategi terpisah yang saat ini hanya tersedia di TradingView.
+`Source/` berisi dua script Pine untuk strategi yang sama: versi **lengkap**
+(`HoekaGata_Indicator.pine`, engine pola/state/level/panel/alert aktif) dan **draft lama**
+(`HoekaGata_Indicator_Engulf.pine`, baru berisi input + panel).
 
 ## Komponen
 
@@ -13,31 +14,35 @@ yaitu strategi terpisah yang saat ini hanya tersedia di TradingView.
 | --- | --- | --- |
 | Indikator MT5 (Engulfing Breakout) | `Main/MQL5/Indicators/HokaGATA/HoekaGataIndicator.mq5` | [`Docs/Indicator_MT5.md`](Docs/Indicator_MT5.md) |
 | EA MT5 (eksekutor signal) | `Main/MQL5/Experts/HokaGATA/HoekaGataAlgo.mq5` | [`Docs/EA_MT5.md`](Docs/EA_MT5.md) |
-| Pine Script Engulfing Breakout (draft) | `Source/HoekaGata_Indicator_Engulf.pine` | [`Docs/TradingView.md`](Docs/TradingView.md) |
-| Pine Script HoekaGata Wave3 Pro | `Source/HoekaGata_Indicator.pine` | [`Docs/TradingView.md`](Docs/TradingView.md) |
+| Pine Script Engulfing Breakout (lengkap) | `Source/HoekaGata_Indicator.pine` | [`Docs/TradingView.md`](Docs/TradingView.md) |
+| Pine Script Engulfing Breakout (draft lama) | `Source/HoekaGata_Indicator_Engulf.pine` | [`Docs/TradingView.md`](Docs/TradingView.md) |
 | Mockup panel hasil (HTML) | `Main/Docs/panel-mockup.html` | Acuan layout panel indikator |
 | Build & deploy otomatis | `Main/Tools/Build-MT5.ps1` | [`Docs/Indicator_MT5.md`](Docs/Indicator_MT5.md#build-dan-deploy) |
 | AI skill (build & MT5) | `.claude/skills/hoekagata-build/SKILL.md`, `.claude/skills/hoekagata-mt5/SKILL.md` | Alur compile/deploy otomatis untuk agent |
 | Position Sizer (pihak ketiga) | `Main/MQL5/RiskCalculator/` | Utility risk calculator, bukan bagian signal engine |
 
-## PENTING: nama file Pine tidak sesuai isi
+## PENTING: dua file Pine, beda kelengkapan
 
-Isi kedua script Pine **tertukar** terhadap namanya:
+Kedua file berisi strategi yang sama (**Engulfing Breakout**), hanya berbeda kelengkapan:
 
 | Nama file | Isi sebenarnya |
 | --- | --- |
-| `Source/HoekaGata_Indicator.pine` | **HoekaGata Wave3 Pro** (Elliott Wave 0-3), 1112 baris |
-| `Source/HoekaGata_Indicator_Engulf.pine` | **Engulfing Breakout** (draft/skeleton), 291 baris |
+| `Source/HoekaGata_Indicator.pine` | **Engulfing Breakout lengkap** — `indicator("Engulfing Breakout - Arslan", ...)`, 576 baris, engine pola/state/level/panel/alert aktif |
+| `Source/HoekaGata_Indicator_Engulf.pine` | **Engulfing Breakout draft** — `indicator("Engulfing Breakout", ...)`, 291 baris, hanya input + panel; engine masih TODO |
 
 File tidak di-rename supaya script yang sudah terpasang di TradingView tidak putus. Saat memasang ke
 TradingView, **buka file lalu cek baris `indicator(...)`**:
 
-- `indicator("HoekaGata Wave3 Pro", ...)` → strategi Elliott Wave 0-3.
-- `indicator("Engulfing Breakout", ...)` → strategi Engulfing; input, warna, dan panel sudah lengkap,
-  tetapi engine pola/state/drawing/alert masih TODO (lihat [`Docs/TradingView.md`](Docs/TradingView.md)).
+- `indicator("Engulfing Breakout - Arslan", ...)` → versi lengkap, pakai ini untuk validasi signal.
+- `indicator("Engulfing Breakout", ...)` → draft lama, jangan dipakai untuk trading.
 
-Rekomendasi jangka panjang: rename menjadi `HoekaGata_Wave3Pro.pine` dan
-`HoekaGata_EngulfingBreakout.pine`.
+Perbedaan input: versi lengkap menambahkan `Pattern Mode` (`Strict` / `Loose`) yang tidak ada di draft,
+dan `Panel Text Size` di draft masih punya opsi `Large` (versi lengkap hanya `Tiny` / `Small` /
+`Normal`).
+
+Rekomendasi jangka panjang: rename menjadi `HoekaGata_EngulfingBreakout.pine` (lengkap) dan
+`HoekaGata_EngulfingBreakout_Draft.pine` (draft), lalu perbarui tautan di dokumen ini dan
+[`Docs/TradingView.md`](Docs/TradingView.md).
 
 ## Alur Sistem
 
@@ -63,7 +68,6 @@ MT5 — HoekaGataAlgo EA     (filter risk/spread/time + eksekusi order)
 Main/
   Docs/
     panel-mockup.html                Mockup HTML panel statistik indikator (acuan layout)
-    _panel_preview.png               Preview panel
   Tools/
     Build-MT5.ps1                    Compile + deploy indikator & EA ke terminal MT5
   MQL5/
@@ -85,8 +89,8 @@ Main/
         HoekaGataAlgo_Panel.mqh          Panel kontrol EA (2 halaman)
     RiskCalculator/                  Position Sizer pihak ketiga (utility opsional)
 Source/
-  HoekaGata_Indicator.pine           Isi: HoekaGata Wave3 Pro
-  HoekaGata_Indicator_Engulf.pine    Isi: Engulfing Breakout (draft)
+  HoekaGata_Indicator.pine           Isi: Engulfing Breakout (versi lengkap)
+  HoekaGata_Indicator_Engulf.pine    Isi: Engulfing Breakout (draft lama)
 Docs/
   Indicator_MT5.md                   Dokumentasi lengkap indikator MT5
   EA_MT5.md                          Dokumentasi lengkap EA MT5
