@@ -34,12 +34,88 @@ struct EngulfAlertFlags
    bool cancelledNow;
    int  cancelledDir;
    int  resultDir;
+
+   // Snapshot of the setup taken the moment the event fired. The replay keeps
+   // going after an event and may create a brand-new setup in the same bar
+   // (cancel + opposite pattern, TP/SL + new pattern), overwriting every
+   // setup.p* field. Alerts must report these captured values, never setup.*.
+   int    evDir;
+   int    evSetupBar;
+   int    evEventBar;
+   double evBreak;
+   double evEntry;
+   double evSL;
+   double evTP;
 };
+
+// Alert de-duplication. RecalculateEngulfing() replays every bar from scratch
+// on each tick that changes the forming bar, so an event that stays on the last
+// bar would fire Alert() on every tick. One key per event type is enough: only
+// the last bar can alert, therefore identical keys are always consecutive.
+string EngulfAlertKeyArmed  = "";
+string EngulfAlertKeyEntry  = "";
+string EngulfAlertKeyTP     = "";
+string EngulfAlertKeySL     = "";
+string EngulfAlertKeyCancel = "";
+
+bool EngulfAlertOnce(string &lastKey, const string key)
+{
+   if(key == "" || key == lastKey)
+      return false;
+
+   lastKey = key;
+   return true;
+}
+
+// Captures the setup that produced the event; call it at trigger time.
+void EngulfAlertCapture(EngulfAlertFlags &flags, const EngulfSetup &s, const int dir, const int eventBar)
+{
+   flags.evDir      = dir;
+   flags.evSetupBar = s.setupBar;
+   flags.evEventBar = eventBar;
+   flags.evBreak    = s.pBreak;
+   flags.evEntry    = s.pEntry;
+   flags.evSL       = s.pSL;
+   flags.evTP       = s.pTP;
+}
 
 // Returns the "risk" distance used for the R:R target.
 double EngulfRisk(const int dir, const double entry, const double sl)
 {
    return MathAbs(entry - sl);
+}
+
+// Alert text helpers: same price format as the chart labels, plus the two
+// pieces every alert needs to be unambiguous (setup bar vs event bar, and the
+// realised R:R of that setup).
+string EngulfAlertBarText(const int bar, const datetime &time[])
+{
+   if(bar < 0 || bar >= ArraySize(time))
+      return "n/a";
+
+   return TimeToString(time[bar], TIME_DATE | TIME_MINUTES);
+}
+
+string EngulfAlertRRText(const double entry, const double sl, const double tp)
+{
+   double risk = MathAbs(entry - sl);
+   if(risk <= 0.0)
+      return "n/a";
+
+   return "1:" + DoubleToString(MathAbs(tp - entry) / risk, 2);
+}
+
+string EngulfAlertHead()
+{
+   return _Symbol + " " + EngulfTimeframeText();
+}
+
+// Identity of one event: event name + direction + setup bar time + event bar
+// time. Bar times are used instead of indexes so that a history re-download
+// (which shifts every index) cannot make the same event alert twice.
+string EngulfAlertKey(const string event, const int dir, const string setupAt, const string barAt)
+{
+   return event + "|" + IntegerToString(dir) + "|" + setupAt + "|" + barAt;
 }
 
 // .pine CREATE NEW SETUP level math, including the guards.
@@ -161,6 +237,13 @@ void RecalculateEngulfing(
       flags.cancelledNow = false;
       flags.cancelledDir = 0;
       flags.resultDir = 0;
+      flags.evDir = 0;
+      flags.evSetupBar = -1;
+      flags.evEventBar = -1;
+      flags.evBreak = 0.0;
+      flags.evEntry = 0.0;
+      flags.evSL = 0.0;
+      flags.evTP = 0.0;
 
       // .pine EXTEND ACTIVE SETUP (state != 0): stretch visuals to bar_index + extendB
       if(state != STATE_NONE && InpShowLines)
@@ -189,7 +272,10 @@ void RecalculateEngulfing(
 
       if(InpCancelOpp && (oppositeToBuy || oppositeToSell))
       {
-         flags.cancelledDir = state > 0 ? 1 : -1;
+         int cancelDir = state > 0 ? 1 : -1;
+
+         EngulfAlertCapture(flags, setup, cancelDir, i);
+         flags.cancelledDir = cancelDir;
          stats.nCancelled++;
          flags.cancelledNow = true;
          state = STATE_NONE;
@@ -218,6 +304,7 @@ void RecalculateEngulfing(
       {
          if(high[i] >= setup.pBreak)
          {
+            EngulfAlertCapture(flags, setup, 1, i);
             state = STATE_BUY_ARMED;
             flags.armedNow = true;
          }
@@ -228,6 +315,7 @@ void RecalculateEngulfing(
       {
          if(high[i] >= setup.pEntry)
          {
+            EngulfAlertCapture(flags, setup, 1, i);
             state = STATE_BUY_ACTIVE;
             setup.entryBar = i;
             stats.nRun++;
@@ -245,6 +333,7 @@ void RecalculateEngulfing(
       {
          if(low[i] <= setup.pBreak)
          {
+            EngulfAlertCapture(flags, setup, -1, i);
             state = STATE_SELL_ARMED;
             flags.armedNow = true;
          }
@@ -255,6 +344,7 @@ void RecalculateEngulfing(
       {
          if(low[i] <= setup.pEntry)
          {
+            EngulfAlertCapture(flags, setup, -1, i);
             state = STATE_SELL_ACTIVE;
             setup.entryBar = i;
             stats.nRun++;
@@ -279,6 +369,7 @@ void RecalculateEngulfing(
             if(curSLStreak > stats.maxSLStreak)
                stats.maxSLStreak = curSLStreak;
 
+            EngulfAlertCapture(flags, setup, 1, i);
             flags.slHitNow = true;
             flags.resultDir = 1;
             state = STATE_NONE;
@@ -295,6 +386,7 @@ void RecalculateEngulfing(
             if(curTPStreak > stats.maxTPStreak)
                stats.maxTPStreak = curTPStreak;
 
+            EngulfAlertCapture(flags, setup, 1, i);
             flags.tpHitNow = true;
             flags.resultDir = 1;
             state = STATE_NONE;
@@ -316,6 +408,7 @@ void RecalculateEngulfing(
             if(curSLStreak > stats.maxSLStreak)
                stats.maxSLStreak = curSLStreak;
 
+            EngulfAlertCapture(flags, setup, -1, i);
             flags.slHitNow = true;
             flags.resultDir = -1;
             state = STATE_NONE;
@@ -332,6 +425,7 @@ void RecalculateEngulfing(
             if(curTPStreak > stats.maxTPStreak)
                stats.maxTPStreak = curTPStreak;
 
+            EngulfAlertCapture(flags, setup, -1, i);
             flags.tpHitNow = true;
             flags.resultDir = -1;
             state = STATE_NONE;
@@ -523,37 +617,66 @@ void RecalculateEngulfing(
 
       if(paint && i == rates_total - 1)
       {
-         if(flags.armedNow)
+         // Every field below comes from the snapshot taken when the event
+         // fired, so a setup created later in this same bar cannot rewrite the
+         // numbers that are being reported.
+         string head    = EngulfAlertHead();
+         string setupAt = EngulfAlertBarText(flags.evSetupBar, time);
+         string barAt   = EngulfAlertBarText(flags.evEventBar, time);
+         string side    = flags.evDir == 1 ? "BUY" : "SELL";
+         string rr      = EngulfAlertRRText(flags.evEntry, flags.evSL, flags.evTP);
+
+         if(flags.armedNow && EngulfAlertOnce(EngulfAlertKeyArmed,
+                                               EngulfAlertKey("ARMED", flags.evDir, setupAt, barAt)))
          {
-            string armedSide = state == STATE_BUY_ARMED ? "BUY" : "SELL";
-            Alert(_Symbol + " " + EngulfTimeframeText() + " | BREAK BODY TRIGGERED " + armedSide +
-                  " | PENDING @ " + EngulfPriceText(setup.pEntry));
+            Alert(head + " | BREAK BODY " + side + " @ " + EngulfPriceText(flags.evBreak) +
+                  " | pending entry " + EngulfPriceText(flags.evEntry) +
+                  " | SL " + EngulfPriceText(flags.evSL) +
+                  " | TP " + EngulfPriceText(flags.evTP) +
+                  " | RR " + rr +
+                  " | setup " + setupAt +
+                  " | bar " + barAt);
          }
-         if(flags.hitBuy || flags.hitSell)
+         if((flags.hitBuy || flags.hitSell) &&
+            EngulfAlertOnce(EngulfAlertKeyEntry, EngulfAlertKey("ENTRY", flags.evDir, setupAt, barAt)))
          {
-            string entrySide = flags.hitBuy ? "BUY" : "SELL";
-            Alert(_Symbol + " " + EngulfTimeframeText() + " | ENTRY " + entrySide +
-                  " @ " + EngulfPriceText(setup.pEntry) +
-                  " | SL " + EngulfPriceText(setup.pSL) +
-                  " | TP " + EngulfPriceText(setup.pTP));
+            Alert(head + " | ENTRY " + side + " FILLED @ " + EngulfPriceText(flags.evEntry) +
+                  " | SL " + EngulfPriceText(flags.evSL) +
+                  " | TP " + EngulfPriceText(flags.evTP) +
+                  " | RR " + rr +
+                  " | break body " + EngulfPriceText(flags.evBreak) +
+                  " | setup " + setupAt +
+                  " | fill bar " + barAt);
          }
-         if(flags.tpHitNow)
+         if(flags.tpHitNow && EngulfAlertOnce(EngulfAlertKeyTP,
+                                               EngulfAlertKey("TP", flags.evDir, setupAt, barAt)))
          {
-            string tpSide = flags.resultDir == 1 ? "BUY" : "SELL";
-            Alert(_Symbol + " " + EngulfTimeframeText() + " | TP HIT " + tpSide +
-                  " @ " + EngulfPriceText(setup.pTP));
+            Alert(head + " | TP HIT " + side + " @ " + EngulfPriceText(flags.evTP) +
+                  " | entry " + EngulfPriceText(flags.evEntry) +
+                  " | SL " + EngulfPriceText(flags.evSL) +
+                  " | RR " + rr +
+                  " | setup " + setupAt +
+                  " | result bar " + barAt);
          }
-         if(flags.slHitNow)
+         if(flags.slHitNow && EngulfAlertOnce(EngulfAlertKeySL,
+                                               EngulfAlertKey("SL", flags.evDir, setupAt, barAt)))
          {
-            string slSide = flags.resultDir == 1 ? "BUY" : "SELL";
-            Alert(_Symbol + " " + EngulfTimeframeText() + " | SL HIT " + slSide +
-                  " @ " + EngulfPriceText(setup.pSL));
+            Alert(head + " | SL HIT " + side + " @ " + EngulfPriceText(flags.evSL) +
+                  " | entry " + EngulfPriceText(flags.evEntry) +
+                  " | TP " + EngulfPriceText(flags.evTP) +
+                  " | RR " + rr +
+                  " | setup " + setupAt +
+                  " | result bar " + barAt);
          }
-         if(flags.cancelledNow)
+         if(flags.cancelledNow && EngulfAlertOnce(EngulfAlertKeyCancel,
+                                                   EngulfAlertKey("CANCEL", flags.evDir, setupAt, barAt)))
          {
-            string cancelSide = flags.cancelledDir == 1 ? "BUY" : "SELL";
-            Alert(_Symbol + " " + EngulfTimeframeText() + " | CANCELLED " + cancelSide +
-                  " | SL " + EngulfPriceText(setup.pSL));
+            Alert(head + " | CANCELLED " + side + " (opposite signal)" +
+                  " | pending entry " + EngulfPriceText(flags.evEntry) +
+                  " | SL " + EngulfPriceText(flags.evSL) +
+                  " | TP " + EngulfPriceText(flags.evTP) +
+                  " | setup " + setupAt +
+                  " | cancel bar " + barAt);
          }
       }
    }

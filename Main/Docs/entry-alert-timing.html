@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="utf-8">
@@ -113,20 +113,20 @@
         <td>S+1 dan seterusnya</td>
         <td><code>high &ge; max(open, close) S&minus;1 + tol</code> <span class="dim">(tol default 0.00)</span></td>
         <td><code>BUY_ARMED</code></td>
-        <td>BREAK BODY TRIGGERED</td>
+        <td>BREAK BODY</td>
       </tr>
       <tr>
         <td>3. Entry</td>
         <td>S+1 dan seterusnya, setelah tahap 2</td>
         <td><code>high &ge; high S&minus;1 + 0.10&middot;ATR</code></td>
         <td><code>BUY_ACTIVE</code></td>
-        <td class="buy"><b>ENTRY</b></td>
+        <td class="buy"><b>ENTRY FILLED</b></td>
       </tr>
     </tbody>
   </table>
   <div class="note">
     Candle pola (S) <b>tidak pernah</b> menjadi bar entry: syarat <code>i &gt; setup.setupBar</code>
-    (Core.mqh 217) menahan trigger sampai candle berikutnya. Entry paling cepat di S+1, dan hanya setelah
+    (Core.mqh 303&ndash;305) menahan trigger sampai candle berikutnya. Entry paling cepat di S+1, dan hanya setelah
     break body kena &mdash; kedua tahap boleh terjadi di candle S+1 yang sama (dua alert berurutan).
   </div>
   <p class="dim" style="margin-top:10px">
@@ -246,20 +246,20 @@
     <tr>
       <td class="num">1</td>
       <td>Bar <b>S+1</b> menyentuh BREAK BODY<br><span class="dim">state: PENDING &rarr; ARMED</span></td>
-      <td><code>state == STATE_BUY_SETUP</code> &amp;&amp; <code>i &gt; setup.setupBar</code> &amp;&amp; <code>high[i] &gt;= pBreak</code><br><span class="dim">Core.mqh 217&ndash;224</span></td>
-      <td><code>XAUUSD PERIOD_H1 | BREAK BODY TRIGGERED BUY | PENDING @ 2402.40</code></td>
+      <td><code>state == STATE_BUY_SETUP</code> &amp;&amp; <code>i &gt; setup.setupBar</code> &amp;&amp; <code>high[i] &gt;= pBreak</code><br><span class="dim">Core.mqh 303&ndash;313</span></td>
+      <td><code>XAUUSD PERIOD_H1 | BREAK BODY BUY @ 2400.00 | pending entry 2402.40 | SL 2392.60 | TP 2422.00 | RR 1:2.00 | setup 2026.10.22 08:00 | bar 2026.10.22 09:00</code></td>
     </tr>
     <tr>
       <td class="num">2</td>
       <td>Bar <b>S+2</b> menyentuh ENTRY<br><span class="dim">state: ARMED &rarr; ACTIVE</span></td>
-      <td><code>state == STATE_BUY_ARMED</code> &amp;&amp; <code>high[i] &gt;= pEntry</code><br><span class="dim">Core.mqh 227&ndash;241</span></td>
-      <td><code>XAUUSD PERIOD_H1 | ENTRY BUY @ 2402.40 | SL 2392.60 | TP 2422.00</code></td>
+      <td><code>state == STATE_BUY_ARMED</code> &amp;&amp; <code>high[i] &gt;= pEntry</code><br><span class="dim">Core.mqh 316&ndash;325</span></td>
+      <td><code>XAUUSD PERIOD_H1 | ENTRY BUY FILLED @ 2402.40 | SL 2392.60 | TP 2422.00 | RR 1:2.00 | break body 2400.00 | setup 2026.10.22 08:00 | fill bar 2026.10.22 10:00</code></td>
     </tr>
     <tr>
       <td class="num">3</td>
       <td>Bar <b>S+4</b> menyentuh TP<br><span class="dim">state: ACTIVE &rarr; NONE</span></td>
-      <td><code>state == STATE_BUY_ACTIVE</code> &amp;&amp; <code>i &gt; setup.entryBar</code> &amp;&amp; <code>high[i] &gt;= pTP</code><br><span class="dim">Core.mqh 289&ndash;304</span></td>
-      <td><code>XAUUSD PERIOD_H1 | TP HIT BUY @ 2422.00</code></td>
+      <td><code>state == STATE_BUY_ACTIVE</code> &amp;&amp; <code>i &gt; setup.entryBar</code> &amp;&amp; <code>high[i] &gt;= pTP</code><br><span class="dim">Core.mqh 380&ndash;393</span></td>
+      <td><code>XAUUSD PERIOD_H1 | TP HIT BUY @ 2422.00 | entry 2402.40 | SL 2392.60 | RR 1:2.00 | setup 2026.10.22 08:00 | result bar 2026.10.22 14:00</code></td>
     </tr>
   </tbody>
 </table>
@@ -268,6 +268,30 @@
   Tidak ada alert saat pola terbentuk (bar S). Pola hanya mengubah panel menjadi <code>PENDING BUY</code>
   dan menggambar garis BREAK BODY / ENTRY / SL / TP.
 </p>
+
+<h2>1b. Anatomi teks alert ENTRY</h2>
+<div class="card">
+  <p style="margin:0 0 10px">Contoh lengkap (default: <code>InpBufEntryX = 0.10</code>, <code>InpBodyBreakTol = 0.00</code>, <code>InpRrRatio = 2.0</code>):</p>
+  <p style="margin:0 0 12px"><code>XAUUSD PERIOD_H1 | ENTRY BUY FILLED @ 2402.40 | SL 2392.60 | TP 2422.00 | RR 1:2.00 | break body 2400.00 | setup 2026.10.22 08:00 | fill bar 2026.10.22 10:00</code></p>
+  <table>
+    <thead><tr><th>Field</th><th>Contoh</th><th>Arti</th></tr></thead>
+    <tbody>
+      <tr><td><code>&lt;SYMBOL&gt; &lt;TF&gt;</code></td><td><code>XAUUSD PERIOD_H1</code></td><td>chart tempat indikator berjalan (bukan input)</td></tr>
+      <tr><td><code>ENTRY ... FILLED</code></td><td><code>ENTRY BUY FILLED</code></td><td>entry sudah terisi &mdash; bukan pending, bukan sinyal pola</td></tr>
+      <tr><td><code>@ &lt;entry&gt;</code></td><td><code>@ 2402.40</code></td><td>level ENTRY = wick S&minus;1 + 0.10&middot;ATR</td></tr>
+      <tr><td><code>SL</code></td><td><code>2392.60</code></td><td>SL setup itu = low S&minus;1 &minus; 0.10&middot;ATR</td></tr>
+      <tr><td><code>TP</code></td><td><code>2422.00</code></td><td>TP setup itu = ENTRY + <code>InpRrRatio</code> &times; risk</td></tr>
+      <tr><td><code>RR</code></td><td><code>1:2.00</code></td><td><code>|TP-ENTRY| / |ENTRY-SL|</code> dari level sebenarnya, bukan angka input</td></tr>
+      <tr><td><code>break body</code></td><td><code>2400.00</code></td><td>level trigger yang sudah dilewati sebelum entry = body top S&minus;1</td></tr>
+      <tr><td><code>setup</code></td><td><code>2026.10.22 08:00</code></td><td>waktu candle pola (S) &mdash; penanda setup mana yang dipakai</td></tr>
+      <tr><td><code>fill bar</code></td><td><code>2026.10.22 10:00</code></td><td>waktu candle tempat harga menyentuh ENTRY</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    Semua angka diambil dari <b>snapshot saat kejadian</b> (<code>EngulfAlertFlags.ev*</code>), jadi satu alert
+    tidak mungkin mencampur level setup lama dengan setup baru yang lahir di bar yang sama.
+  </div>
+</div>
 
 <h2>2. BREAK BODY dan ENTRY bisa kena di candle yang sama</h2>
 <div class="card">
@@ -296,8 +320,8 @@
   <path d="M381,71 L367,142" stroke="#ffeb3b" stroke-width="1" stroke-dasharray="3 3" fill="none"></path>
 
   <text x="440" y="120" fill="#dddddd" font-size="13">Urutan evaluasi dalam satu iterasi bar:</text>
-  <text x="440" y="142" fill="#9aa0ab" font-size="12">1) high &ge; BREAK BODY &rarr; ARMED &rarr; alert BREAK BODY TRIGGERED</text>
-  <text x="440" y="162" fill="#9aa0ab" font-size="12">2) high &ge; ENTRY (state sudah ARMED) &rarr; ACTIVE &rarr; alert ENTRY</text>
+  <text x="440" y="142" fill="#9aa0ab" font-size="12">1) high &ge; BREAK BODY &rarr; ARMED &rarr; alert BREAK BODY</text>
+  <text x="440" y="162" fill="#9aa0ab" font-size="12">2) high &ge; ENTRY (state sudah ARMED) &rarr; ACTIVE &rarr; alert ENTRY FILLED</text>
   <text x="440" y="182" fill="#ffeb3b" font-size="12">Dua alert keluar berurutan pada tick yang sama.</text>
 </svg>
 <p class="dim" style="margin-top:10px">
@@ -309,7 +333,7 @@
 <div class="card">
   <p style="margin:0 0 8px">
     Semua alert berada di dalam satu gerbang:
-    <code>if(paint &amp;&amp; i == rates_total - 1)</code> &nbsp;<span class="dim">(Core.mqh 524)</span>.
+    <code>if(paint &amp;&amp; i == rates_total - 1)</code> &nbsp;<span class="dim">(Core.mqh 618)</span>.
     Artinya alert hanya bisa keluar bila level tersentuh di <b>bar yang sedang berjalan</b> pada saat
     <code>OnCalculate</code> mengevaluasi bar tersebut.
   </p>
@@ -341,69 +365,34 @@
       <tr>
         <td>Setup di-cancel sinyal lawan (opsi <code>InpCancelOpp</code>)</td>
         <td class="warn"><b>Ya</b> &mdash; alert <code>CANCELLED</code></td>
-        <td>Bukan alert entry; hanya pemberitahuan setup batal (Core.mqh 187&ndash;214)</td>
+        <td>Bukan alert entry; hanya pemberitahuan setup batal (Core.mqh 269&ndash;282)</td>
       </tr>
     </tbody>
   </table>
 </div>
 
-<h2>4. Selama candle fill masih terbuka, alert ENTRY bisa terulang</h2>
+<h2>4. Alert tidak terulang: satu kejadian = satu alert</h2>
 <div class="card">
-<svg viewBox="0 0 1180 250" role="img" aria-label="Alert ENTRY berulang selama candle fill belum close">
-  <rect x="130" y="120" width="820" height="46" rx="6" fill="#2b2b2b" stroke="#ffeb3b" stroke-width="1.5" stroke-dasharray="5 4"></rect>
-  <text x="540" y="149" fill="#ffeb3b" font-size="13" text-anchor="middle">candle fill (S+2) masih terbuka &mdash; belum close</text>
-
-  <g stroke="#8a8a8a" stroke-width="1" stroke-dasharray="3 3">
-    <line x1="220" y1="86" x2="220" y2="120"></line>
-    <line x1="380" y1="86" x2="380" y2="120"></line>
-    <line x1="540" y1="86" x2="540" y2="120"></line>
-    <line x1="700" y1="86" x2="700" y2="120"></line>
-    <line x1="860" y1="86" x2="860" y2="120"></line>
-  </g>
-
-  <g font-size="12" text-anchor="middle">
-    <circle cx="220" cy="74" r="12" fill="#2b2b2b" stroke="#ffeb3b"></circle>
-    <text x="220" y="79" fill="#ffeb3b">E</text>
-    <circle cx="380" cy="74" r="12" fill="#2b2b2b" stroke="#ffeb3b"></circle>
-    <text x="380" y="79" fill="#ffeb3b">E</text>
-    <circle cx="540" cy="74" r="12" fill="#2b2b2b" stroke="#ffeb3b"></circle>
-    <text x="540" y="79" fill="#ffeb3b">E</text>
-    <circle cx="700" cy="74" r="12" fill="#2b2b2b" stroke="#ffeb3b"></circle>
-    <text x="700" y="79" fill="#ffeb3b">E</text>
-    <circle cx="860" cy="74" r="12" fill="#2b2b2b" stroke="#ffeb3b"></circle>
-    <text x="860" y="79" fill="#ffeb3b">E</text>
-  </g>
-
-  <text x="130" y="44" fill="#dddddd" font-size="12">tiap tick yang mengubah OHLC bar terakhir &rarr; recalculation penuh &rarr; flag hitBuy ter-set lagi</text>
-
-  <g font-size="11" fill="#8a8a8a" text-anchor="middle">
-    <text x="220" y="188">tick 1</text>
-    <text x="380" y="188">tick 2</text>
-    <text x="540" y="188">tick 3</text>
-    <text x="700" y="188">tick 4</text>
-    <text x="860" y="188">tick 5</text>
-  </g>
-  <text x="680" y="212" fill="#ffeb3b" font-size="12" text-anchor="middle">alert ENTRY yang sama bisa keluar berkali-kali</text>
-
-  <line x1="1000" y1="60" x2="1000" y2="180" stroke="#26a69a" stroke-width="1.5" stroke-dasharray="4 4"></line>
-  <text x="1008" y="80" fill="#26a69a" font-size="12">candle close</text>
-  <text x="1008" y="98" fill="#8a8a8a" font-size="12">&rarr; replay berakhir</text>
-  <text x="1008" y="116" fill="#8a8a8a" font-size="12">di bar baru, alert</text>
-  <text x="1008" y="134" fill="#8a8a8a" font-size="12">tidak diulang lagi</text>
-</svg>
-<div class="note">
-  <b>Kenapa bisa terulang?</b> <code>RecalculateEngulfing</code> selalu memulai dari
-  <code>state = STATE_NONE</code> dan me-replay seluruh bar (Core.mqh 136 &amp; 153). Tidak ada
-  penyimpanan &ldquo;sudah pernah alert&rdquo;. Selama bar terakhir masih bar fill itu, replay akan
-  menghasilkan <code>flags.hitBuy = true</code> lagi, dan gerbang <code>i == rates_total - 1</code> tetap lolos.
-  Alert berhenti otomatis begitu candle fill close.
-</div>
-<p class="dim" style="margin-top:10px">
-  Praktisnya: anggap alert ENTRY <b>pertama</b> di candle tersebut sebagai sinyal; pengulangan berikutnya
-  adalah peristiwa yang sama. EA <code>HoekaGataAlgo</code> sendiri sudah menahan duplikasi lewat
-  perbandingan <code>signalTime == g_lastSignalTime</code>
-  (<code>HoekaGataAlgo_Trading.mqh:19</code>), jadi alert berulang tidak menjadi entri berulang.
-</p>
+  <p style="margin:0 0 10px">
+    Replay penuh tetap berjalan tiap tick, tetapi tiap jenis kejadian menyimpan kunci
+    <code>&lt;event&gt;|&lt;dir&gt;|&lt;setup time&gt;|&lt;bar time&gt;</code>. <code>EngulfAlertOnce()</code>
+    menolak kunci yang sama, jadi kejadian yang sama tidak di-alert dua kali.
+  </p>
+  <table>
+    <thead><tr><th>Situasi</th><th>Hasil</th></tr></thead>
+    <tbody>
+      <tr><td>Tick berikutnya, candle fill masih terbuka</td><td class="dim">kunci sama &rarr; tidak ada alert baru</td></tr>
+      <tr><td>BREAK BODY lalu ENTRY di candle yang sama</td><td>dua alert (kunci beda: <code>ARMED</code> vs <code>ENTRY</code>)</td></tr>
+      <tr><td>Candle baru / setup baru</td><td>alert baru (waktu bar berbeda)</td></tr>
+      <tr><td>Histori di-reload / re-download</td><td class="dim">kunci memakai waktu bar, bukan index &rarr; tidak memicu ulang</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    Sebelum dedupe, alert yang sama bisa keluar tiap tick selama candle fill masih terbuka: replay selalu
+    mulai dari <code>state = STATE_NONE</code> dan tidak menyimpan status &ldquo;sudah pernah alert&rdquo;.
+    EA <code>HoekaGataAlgo</code> tetap punya lapisan kedua lewat
+    <code>signalTime == g_lastSignalTime</code> (<code>HoekaGataAlgo_Trading.mqh:19</code>).
+  </div>
 </div>
 <h2>5. Matriks state &rarr; alert</h2>
 <div class="card">
@@ -412,17 +401,17 @@
     <tr><th>State sebelum</th><th>Syarat (bar ke-i)</th><th>State sesudah</th><th>Alert</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>NONE</code></td><td>sinyal engulfing baru (Core.mqh 365)</td><td><code>BUY_SETUP</code></td><td class="dim">&mdash; (panel jadi PENDING BUY)</td></tr>
-    <tr><td><code>BUY_SETUP</code></td><td><code>i &gt; setupBar</code> &amp;&amp; <code>high &ge; pBreak</code></td><td><code>BUY_ARMED</code></td><td>BREAK BODY TRIGGERED BUY</td></tr>
-    <tr><td><code>BUY_ARMED</code></td><td><code>high &ge; pEntry</code></td><td><code>BUY_ACTIVE</code></td><td class="buy"><b>ENTRY BUY</b></td></tr>
-    <tr><td><code>BUY_ARMED</code></td><td><code>sig.sell</code> &amp;&amp; <code>InpCancelOpp</code></td><td><code>NONE</code></td><td>CANCELLED BUY</td></tr>
+    <tr><td><code>NONE</code></td><td>sinyal engulfing baru (Core.mqh 457)</td><td><code>BUY_SETUP</code></td><td class="dim">&mdash; (panel jadi PENDING BUY)</td></tr>
+    <tr><td><code>BUY_SETUP</code></td><td><code>i &gt; setupBar</code> &amp;&amp; <code>high &ge; pBreak</code></td><td><code>BUY_ARMED</code></td><td>BREAK BODY BUY</td></tr>
+    <tr><td><code>BUY_ARMED</code></td><td><code>high &ge; pEntry</code></td><td><code>BUY_ACTIVE</code></td><td class="buy"><b>ENTRY BUY FILLED</b></td></tr>
+    <tr><td><code>BUY_ARMED</code></td><td><code>sig.sell</code> &amp;&amp; <code>InpCancelOpp</code></td><td><code>NONE</code></td><td>CANCELLED BUY (opposite signal)</td></tr>
     <tr><td><code>BUY_ACTIVE</code></td><td><code>i &gt; entryBar</code> &amp;&amp; <code>low &le; pSL</code></td><td><code>NONE</code></td><td>SL HIT BUY</td></tr>
     <tr><td><code>BUY_ACTIVE</code></td><td><code>i &gt; entryBar</code> &amp;&amp; <code>high &ge; pTP</code></td><td><code>NONE</code></td><td>TP HIT BUY</td></tr>
     <tr><td><code>SELL_*</code></td><td>cermin baris di atas (<code>low &le; pBreak</code>, <code>low &le; pEntry</code>)</td><td>&mdash;</td><td>sama, sisi SELL</td></tr>
   </tbody>
 </table>
 <p class="dim" style="margin-top:10px">
-  SL dicek lebih dulu daripada TP (Core.mqh 271&ndash;305), jadi bila satu candle menyentuh keduanya,
+  SL dicek lebih dulu daripada TP (Core.mqh 360&ndash;437), jadi bila satu candle menyentuh keduanya,
   yang tercatat adalah <code>SL HIT</code>.
 </p>
 </div>
@@ -433,12 +422,14 @@
     Alert <span class="buy">ENTRY</span> keluar <b>pada tick pertama yang membuat <code>high &ge; ENTRY</code>
     (BUY) atau <code>low &le; ENTRY</code> (SELL) ketika setup sudah berstatus ARMED, di candle yang masih
     berjalan</b> &mdash; jadi intrabar, bukan saat candle close, dan tidak pernah untuk fill yang sudah lewat.
+    Tiap kejadian hanya di-alert <b>sekali</b> (<code>EngulfAlertOnce</code>), jadi alert berikutnya selalu
+    berarti kejadian baru.
   </p>
 </div>
 
 <footer>
   Sumber kode: <code>Main/MQL5/Indicators/HokaGATA/Includes/HoekaGataIndicator_Core.mqh</code>
-  (baris 136&ndash;153, 187&ndash;241, 271&ndash;342, 365, 513&ndash;558) dan
+  (baris 51&ndash;119, 227&ndash;325, 360&ndash;462, 605&ndash;681) dan
   <code>Main/MQL5/Indicators/HokaGATA/HoekaGataIndicator.mq5</code> (baris 112&ndash;160).
   Halaman ini dokumentasi visual; tidak ada perubahan pada kode indikator maupun <code>.ex5</code>.
 </footer>

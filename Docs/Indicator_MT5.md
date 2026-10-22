@@ -6,7 +6,7 @@ statistik, kontrak signal untuk EA, dan referensi seluruh input.
 
 - **File utama:** `Main/MQL5/Indicators/HokaGATA/HoekaGataIndicator.mq5`
 - **Nama tampilan chart:** `Engulfing Breakout <SYMBOL> <TF>` (mis. `Engulfing Breakout XAUUSD H1`)
-- **Versi:** 2.00
+- **Versi:** 2.01
 - **Buffer:** 4 (`DRAW_NONE`), **plot:** 2
 - **Prefix objek chart:** `HoekaGATA_Engulf_`
 - **Sumber aturan:** `Source/HoekaGata_Indicator_Engulf.pine` (lihat [`TradingView.md`](TradingView.md))
@@ -257,24 +257,35 @@ Detail teknis:
 ## Alert
 
 Alert hanya dipicu pada bar terakhir (`i == rates_total - 1`) dan hanya pada pass painting, sehingga
-replay histori tidak membanjiri terminal. Format persis:
+replay histori tidak membanjiri terminal. Semua harga memakai `EngulfPriceText()` (desimal = `_Digits`);
+`<setup>` adalah **waktu candle pola (S)** dan `<bar>` adalah **waktu candle tempat kejadiannya**.
 
 | Kejadian | Teks |
 | --- | --- |
-| Break body kena (state jadi ARMED) | `<SYMBOL> <TF> \| BREAK BODY TRIGGERED BUY \| PENDING @ <entry>` |
-| Entry terisi | `<SYMBOL> <TF> \| ENTRY BUY @ <entry> \| SL <sl> \| TP <tp>` |
-| TP kena | `<SYMBOL> <TF> \| TP HIT BUY @ <tp>` |
-| SL kena | `<SYMBOL> <TF> \| SL HIT BUY @ <sl>` |
-| Setup dibatalkan | `<SYMBOL> <TF> \| CANCELLED BUY \| SL <sl>` |
+| Break body kena (state jadi ARMED) | `<SYMBOL> <TF> \| BREAK BODY BUY @ <break> \| pending entry <entry> \| SL <sl> \| TP <tp> \| RR <rr> \| setup <setup> \| bar <bar>` |
+| Entry terisi | `<SYMBOL> <TF> \| ENTRY BUY FILLED @ <entry> \| SL <sl> \| TP <tp> \| RR <rr> \| break body <break> \| setup <setup> \| fill bar <bar>` |
+| TP kena | `<SYMBOL> <TF> \| TP HIT BUY @ <tp> \| entry <entry> \| SL <sl> \| RR <rr> \| setup <setup> \| result bar <bar>` |
+| SL kena | `<SYMBOL> <TF> \| SL HIT BUY @ <sl> \| entry <entry> \| TP <tp> \| RR <rr> \| setup <setup> \| result bar <bar>` |
+| Setup dibatalkan | `<SYMBOL> <TF> \| CANCELLED BUY (opposite signal) \| pending entry <entry> \| SL <sl> \| TP <tp> \| setup <setup> \| cancel bar <bar>` |
+
+Sisi `BUY`/`SELL` mengikuti arah setup. `<rr>` dihitung dari level setup sebenarnya
+(`|TP-ENTRY| / |ENTRY-SL|`, dua desimal, mis. `1:2.00`), jadi tetap benar walau guard level menggeser
+harga. Candle pola tidak pernah memicu alert apa pun: pola hanya mengubah panel menjadi
+`PENDING BUY/SELL` dan menggambar garis.
 
 `<TF>` berasal dari `EnumToString((ENUM_TIMEFRAMES)_Period)`, jadi tampil seperti `PERIOD_H1`.
-Indikator memakai `Alert()` (popup terminal). Tidak ada `SendNotification()` / push, dan tidak ada
-input untuk mematikan alert per jenis.
 
-Karena setiap perhitungan me-replay penuh dari bar 1 tanpa menyimpan status "sudah pernah alert",
-alert `BREAK BODY TRIGGERED` / `ENTRY` bisa terulang pada tick-tick berikutnya selama candle tersebut
-masih bar terakhir; pengulangan berhenti sendiri setelah candle close. EA tidak terpengaruh karena
-`HoekaGataAlgo_Trading.mqh` menolak `signalTime` yang sama. Alur waktu alert secara visual:
+**Tidak ada duplikasi.** Tiap jenis kejadian menyimpan kunci `<event>|<dir>|<setup time>|<bar time>`
+(`EngulfAlertKey*` + `EngulfAlertOnce()`), sehingga replay per-tick tidak mengulang alert yang sama.
+Karena kunci memakai waktu bar (bukan index), re-download histori juga tidak memicu ulang. Alert tetap
+keluar **intrabar**, pada tick pertama yang memenuhi syarat.
+
+Semua angka diambil dari snapshot saat kejadian (`EngulfAlertFlags.ev*`), bukan dari variabel `setup`
+yang masih hidup: bar yang sama bisa langsung membentuk setup baru (cancel + pola berlawanan, atau
+TP/SL + pola baru), dan tanpa snapshot alert akan melaporkan level setup baru.
+
+Indikator memakai `Alert()` (popup terminal). Tidak ada `SendNotification()` / push, dan tidak ada
+input untuk mematikan alert per jenis. Alur waktu alert secara visual:
 `Main/Docs/entry-alert-timing.html`.
 
 ## Panel Statistik
@@ -507,7 +518,7 @@ sifat yang diketahui dan disengaja; selisih kecil bukan bug.
   terlihat berbeda dari mockup.
 - Teks panel berwarna terang; pada theme chart putih panel sulit dibaca karena frame-nya transparan.
 - Alert hanya muncul pada bar terakhir saat chart menerima tick. Sinyal yang terjadi saat MT5 tertutup
-  tidak di-alert ulang.
+  tidak di-alert ulang. Tiap kejadian di-alert **sekali per bar** (dedupe lewat `EngulfAlertKey*`).
 - Tidak ada push notification maupun pengaturan suara di indikator; semuanya mengikuti preferensi
   terminal.
 
