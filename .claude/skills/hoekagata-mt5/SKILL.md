@@ -65,18 +65,44 @@ State machine, from `Includes/HoekaGataIndicator_Core.mqh`:
 
 ```
  0      idle
- ±1     setup created, waiting for break-body trigger
- ±2     break body touched, pending armed at wick
+ ±1     setup created on the pattern bar, break-body trigger happens on that same bar
+ ±2     break body touched on the pattern bar, pending at wick (same bar)
  ±3     pending filled, position active
 ```
+
+Since v2.02 the rule is **A = P**: trigger, fill and cancel are all evaluated on the pattern bar, so
+`±1`/`±2` never survive into the next bar (panel never shows `PENDING`). A setup that is armed but whose
+`close` does not pass ENTRY is canceled when that bar closes (`ENTRY … CANCELED`), and the entry/SL/TP
+objects are deleted. Spec: `Main/Docs/entry-requirement-final.html`.
+
+Since v2.03 the pattern is also gated on a **closed** bar (`i < rates_total - 1`): a still-forming candle
+never creates a setup, so panel counters and the EA buffers only change when a candle closes. The extend
+pass and the TP/SL result check stay intrabar. Alert de-dupe also writes the last event bar time into the
+terminal global variable `HG_AL_<chartID>_<periodSeconds>_<TAG>` so re-attaching the indicator or
+switching timeframe does not repeat the last closed-bar alert. `CANCELLED … (opposite signal)` is legacy:
+unreachable under A = P and kept only for input compatibility.
+
+Since v2.04 an intrabar setup is **locked**. `g_engulfLocks` (`Core.mqh`) keeps
+`barTime / dir / BREAK BODY / ENTRY / SL / TP / filled` for every bar that ever had a setup while
+`InpAllowFormingBar = true`. On replay the setup is rebuilt from the lock when `DetectEngulfing()` no
+longer passes (this closes the old "VOID" path: alerts fired intrabar, then the chart lost the setup at
+close), the locked levels are always reused (`EngulfAtrAt()` includes bar S, so recomputing after close
+would shift entry/SL/TP and could even cancel a fill that already happened), and the lock wins over the
+pattern (a same-bar direction flip is ignored). Filled locks come back as `ACTIVE` with the EA buffers
+written; unfilled ones end `CANCELED` at close. The table is an unbounded array searched with binary
+search and lives in indicator memory, so a remove/re-attach in the middle of candle S falls back to
+close-based evaluation. Spec: `Main/Docs/entry-requirement-intrabar-lock.html`.
 
 Order of evaluation inside the bar loop — **this order matters**:
 
 ```
 EXTEND active setup  ->  pattern detect  ->  opposite cancel
-  -> break-body trigger  ->  pending fill  ->  active result
-  -> freeze on TP/SL  ->  create new setup
+  -> create new setup  ->  break-body trigger  ->  pending fill
+  -> cancel at setup-bar close  ->  active result  ->  freeze on TP/SL
 ```
+
+Arm/fill/cancel alerts fire only for the last **closed** bar (`rates_total - 2`); TP/SL may alert on the
+forming bar (`rates_total - 1`).
 
 Reference values, all taken from the **previous** bar:
 

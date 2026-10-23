@@ -32,6 +32,7 @@ input double             InpBufEntryX     = 0.10;           // Breakout Toleranc
 input double             InpBufSLX        = 0.10;           // Breakout Tolerance SL (ATR)
 input double             InpBodyBreakTol  = 0.00;           // Body-Break Tolerance (ATR)
 input bool               InpCancelOpp     = true;           // Cancel on Opposite Signal
+input bool               InpAllowFormingBar = false;        // Allow Pending on Forming Bar (intrabar)
 
 input group "3. RISK & REWARD"
 input double             InpRrRatio       = 2.0;            // Risk : Reward 1 :

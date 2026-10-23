@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Animasi pending order — modus intrabar (candle S berjalan)</title>
+<style>
+  :root {
+    --bg:     #1e1e1e;
+    --card:   #232323;
+    --line:   #3a3a3a;
+    --text:   #cccccc;
+    --dim:    #8a8a8a;
+    --buy:    #26a69a;
+    --sell:   #ef5350;
+    --entry:  #787b86;
+    --body:   #bdbdbd;
+    --warn:   #ffeb3b;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 28px 32px 56px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  h1 { font-size: 22px; margin: 0 0 4px; color: #fff; font-weight: 600; }
+  h2 { font-size: 16px; margin: 30px 0 10px; color: #fff; font-weight: 600;
+       border-left: 3px solid var(--buy); padding-left: 9px; }
+  p.sub { color: var(--dim); margin: 0 0 18px; max-width: 1020px; }
+
+  code { background: #2b2b2b; border: 1px solid var(--line); border-radius: 3px;
+         padding: 1px 4px; font-family: Consolas, "Courier New", monospace; font-size: 12px; }
+
+  .buy  { color: var(--buy); }
+  .sell { color: var(--sell); }
+  .warn { color: var(--warn); }
+  .dim  { color: var(--dim); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .controls button, .controls select {
+    background: #2b2b2b; color: #ddd; border: 1px solid var(--line); border-radius: 4px;
+    padding: 6px 12px; font-family: inherit; font-size: 13px; cursor: pointer;
+  }
+  .controls button:hover { border-color: #5a5a5a; color: #fff; }
+  .controls button:focus { outline: none; }
+  .controls button:focus-visible { outline: 1px dashed #7a7a7a; outline-offset: 2px; }
+  .controls button.on { border-color: var(--buy); color: var(--buy); background: rgba(38,166,154,.08); }
+  .controls button.on.sell { border-color: var(--sell); color: var(--sell); background: rgba(239,83,80,.08); }
+  .controls .sep { width: 1px; height: 22px; background: var(--line); margin: 0 6px; }
+
+  .note {
+    background: #202020; border: 1px solid var(--line); border-left: 3px solid var(--warn);
+    border-radius: 4px; padding: 10px 14px; font-size: 13px; margin: 0 0 16px; max-width: 1060px;
+  }
+  .note.ok  { border-left-color: var(--buy); }
+  .note.bad { border-left-color: var(--sell); }
+  .note b { color: #fff; }
+
+  .stage { display: flex; gap: 14px; align-items: flex-start; }
+
+  .chart-wrap {
+    flex: 1 1 auto; min-width: 0;
+    background: #1b1b1b; border: 1px solid #333; border-radius: 6px; padding: 8px;
+  }
+  canvas { display: block; width: 100%; height: auto; }
+
+  .side { width: 250px; flex: 0 0 250px; display: flex; flex-direction: column; gap: 12px; }
+
+  /* Panel mock: 13 rows, geometry mirrors HoekaGataIndicator_Panel.mqh */
+  .panel {
+    background: #0b0b0b; border: 1px solid #464646; border-radius: 2px;
+    padding: 10px 20px; font-size: 12px; line-height: 16px; color: #fff;
+  }
+  .panel .head { color: #fff; font-weight: 700; text-align: center; }
+  .panel .sub2 { font-size: 11px; color: #ddd; text-align: center; }
+  .panel .rule { height: 1px; background: #464646; margin: 4px 0; }
+  .panel .sect { color: #fff; font-weight: 700; text-align: center; letter-spacing: .5px; }
+  .panel .row { display: flex; justify-content: space-between; }
+  .panel .row span:last-child { font-variant-numeric: tabular-nums; }
+  .panel .box {
+    margin-top: 8px; border: 1px solid #464646; border-radius: 2px;
+    padding: 3px 6px; text-align: center; color: #fff;
+    background: rgba(255,235,59,.10);
+  }
+  .panel .box b { color: #ffeb3b; }
+
+  .log { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+  .log h3 { margin: 0 0 8px; font-size: 12px; color: #fff; letter-spacing: .4px; text-transform: uppercase; }
+  .log .empty { color: var(--dim); font-size: 12px; }
+  .log .item {
+    font-family: Consolas, "Courier New", monospace; font-size: 11px; line-height: 1.45;
+    border-left: 2px solid var(--line); padding: 2px 0 4px 8px; margin-bottom: 6px;
+    color: #cfcfcf; word-break: break-word; animation: pop .25s ease-out;
+  }
+  .log .item.arm   { border-left-color: var(--warn); }
+  .log .item.fill  { border-left-color: var(--buy); }
+  .log .item.cancel{ border-left-color: var(--sell); }
+  .log .item.tp    { border-left-color: var(--buy); }
+  @keyframes pop { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+
+  .caption {
+    margin-top: 10px; min-height: 46px; background: var(--card);
+    border: 1px solid var(--line); border-left: 3px solid var(--warn);
+    border-radius: 4px; padding: 9px 12px; font-size: 13px;
+  }
+  .caption b { color: #fff; }
+  .caption .where { display: block; margin-top: 3px; color: var(--dim);
+                    font-family: Consolas, "Courier New", monospace; font-size: 11px; }
+
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 12.5px; }
+  th, td { border: 1px solid var(--line); padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #2b2b2b; color: #fff; font-weight: 600; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: #bbb; margin-top: 8px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 22px; height: 0; border-top: 2px solid; }
+
+  footer { margin-top: 34px; color: var(--dim); font-size: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+  a { color: var(--warn); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<h1>Animasi pending order &mdash; modus intrabar (saat candle S berjalan)</h1>
+<p class="sub">
+  Satu candle pola (bar S), memakai level, urutan evaluasi, dan teks alert dari kode sebenarnya
+  (<code>HoekaGataIndicator_Core.mqh</code>) dengan opsi <code>InpAllowFormingBar = true</code>:
+  begitu close sementara melewati <code>high(S&minus;1)</code>, level dan pending dipasang selagi
+  candle S masih berjalan &mdash; dan alert <b>BREAK BODY (pasang pending)</b> serta
+  <b>ENTRY FILLED</b> ikut terbit saat itu juga. Dua skenario di bawah: A &mdash; entry tersentuh (fill),
+  B &mdash; close belum lewat entry (cancel).
+</p>
+
+<div class="note bad" style="margin:0 0 16px">
+  <b>Modus INTRABAR &mdash; <code>InpAllowFormingBar = true</code>.</b> Guard <code>notFormingBar</code>
+  dilepas untuk deteksi pola, trigger, dan fill, memakai harga terakhir sebagai close sementara.
+  Alert ikut intrabar: <b>BREAK BODY (pasang pending)</b> terbit begitu pola tentatif sah dan
+  <b>ENTRY FILLED</b> terbit begitu harga menyentuh entry, tanpa menunggu bar S close
+  (<code>alertArmFillBar</code> = <code>closedBar || (InpAllowFormingBar &amp;&amp; i == rates_total - 1)</code>)
+  &mdash; dedupe <code>EngulfAlertOnce</code> menjamin sekali per bar. Alert CANCELED baru terbit di close
+  (cancel memang keputusan close). EA yang membaca shift 0 (<code>InpUseClosedBarSignal = false</code>)
+  ikut entry sebelum bar S close.
+</div>
+
+<div class="controls">
+  <button id="btnFill" class="on">A &mdash; ENTRY tersentuh (fill)</button>
+  <button id="btnCancel">B &mdash; close belum lewat ENTRY (cancel)</button>
+  <span class="sep"></span>
+  <button id="btnPlay">Putar</button>
+  <button id="btnRestart">Ulangi</button>
+  <label class="dim">Kecepatan
+    <select id="speed">
+      <option value="0.5">0.5&times;</option>
+      <option value="1" selected>1&times;</option>
+      <option value="1.5">1.5&times;</option>
+      <option value="2">2&times;</option>
+    </select>
+  </label>
+</div>
+
+<div class="stage">
+  <div class="chart-wrap">
+    <canvas id="cv" width="760" height="400"></canvas>
+    <div class="legend">
+      <span><i style="border-color:#bdbdbd;border-top-style:dashed"></i> BREAK BODY (pemicu)</span>
+      <span><i style="border-color:#787b86"></i> ENTRY (pending)</span>
+      <span><i style="border-color:#ef5350"></i> SL</span>
+      <span><i style="border-color:#26a69a"></i> TP</span>
+    </div>
+    <div class="caption" id="caption"></div>
+  </div>
+
+  <div class="side">
+    <div class="panel" id="panel">
+      <div class="head">Engulfing Breakout</div>
+      <div class="sub2">by Syakir Arslan</div>
+      <div class="rule"></div>
+      <div class="sect">SETUP</div>
+      <div class="row"><span>R:R</span><span id="pRR">1:2.00</span></div>
+      <div class="row"><span>Status</span><span id="pStatus">NONE</span></div>
+      <div class="row"><span>Cancel</span><span id="pCancel">0</span></div>
+      <div class="rule"></div>
+      <div class="sect">RESULTS</div>
+      <div class="row"><span>Signals</span><span id="pSignals">0</span></div>
+      <div class="row"><span>Runs</span><span id="pRuns">0</span></div>
+      <div class="row"><span>Buy %</span><span id="pBuy" class="buy">0.00%</span></div>
+      <div class="row"><span>Sell %</span><span id="pSell" class="sell">0.00%</span></div>
+      <div class="row"><span>TP Streak</span><span id="pTP" class="buy">0</span></div>
+      <div class="row"><span>SL Streak</span><span id="pSL" class="sell">0</span></div>
+      <div class="box">Probability: <b id="pProb">0.00%</b></div>
+    </div>
+
+    <div class="log">
+      <h3>Alert log</h3>
+      <div id="log"><div class="empty">belum ada alert</div></div>
+    </div>
+  </div>
+</div>
+
+<h2>Urutan langkah &mdash; <code>InpAllowFormingBar = true</code></h2>
+<table>
+  <thead>
+    <tr><th style="width:52px">Langkah</th><th style="width:220px">Kejadian</th><th>Kode</th><th style="width:260px">Yang terlihat</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>Harga lewat BREAK BODY 2402.80 (pemicu), candle S masih berjalan</td>
+        <td><code>Core.mqh</code> <code>evalBar = notFormingBar || InpAllowFormingBar</code></td>
+        <td>Badge <code>BREAK BODY dilewati</code>. Pending belum bisa dipasang: <code>Engulf.mqh</code> <code>sig.buy</code> butuh close sementara &gt; high(S&minus;1) 2403.10</td></tr>
+    <tr><td>2</td><td>Close sementara &gt; high(S&minus;1) &rarr; pola tentatif sah</td>
+        <td><code>Core.mqh</code> CREATE + <code>EngulfComputeLevels()</code> intrabar, alert arm dilepas (<code>alertArmFillBar</code>)</td>
+        <td>Level muncul, Status <code>PENDING BUY</code>, dan <b>alert BREAK BODY &mdash; pasang pending</b> langsung terbit</td></tr>
+    <tr><td>3</td><td>Harga menyentuh ENTRY 2403.40</td>
+        <td><code>Core.mqh</code> BREAK BODY trigger + pending fill (<code>i == setup.setupBar</code>)</td>
+        <td>Fill intrabar, Status <code>BUY</code>, Runs 1, buffer EA terisi &mdash; <b>alert ENTRY FILLED</b> terbit saat itu juga</td></tr>
+    <tr><td>4a</td><td>Close S &gt; high(S&minus;1)</td>
+        <td>Pola terkonfirmasi; dedupe <code>EngulfAlertOnce</code> memakai waktu bar event</td>
+        <td>Fill dipertahankan, <b>tidak ada alert baru</b> (arm/fill sudah terbit intrabar), siklus lanjut ke TP</td></tr>
+    <tr><td>4b</td><td>Close S &le; ENTRY</td>
+        <td><code>Core.mqh</code> cancel at setup bar close &mdash; <b>tetap</b> digerbang <code>notFormingBar</code></td>
+        <td>Garis setup memudar, Cancel 1, alert CANCELED baru terbit di close</td></tr>
+    <tr><td>4c</td><td>Close S tidak lolos syarat pola, <b>tetapi</b> ENTRY sudah tersentuh (v2.04)</td>
+        <td><code>Core.mqh</code> kunci <code>g_engulfLocks</code> + <code>lockedBar</code></td>
+        <td>Setup <b>tidak</b> di-void: Status tetap <code>BUY</code>, level tidak bergeser (level beku),
+            buffer EA tetap terisi, dan tidak ada alert tambahan &mdash; arm/fill sudah terbit intrabar</td></tr>
+    <tr><td>5</td><td>EA membaca sinyal</td>
+        <td><code>HoekaGataAlgo_Trading.mqh 17</code> <code>g_useClosedBarSignal</code></td>
+        <td>Dengan shift 0, EA entry intrabar selagi candle S berjalan</td></tr>
+  </tbody>
+</table>
+
+<footer>
+  Level contoh dihitung dengan input default (ATR 3.00, <code>InpBufEntryX</code> 0.10,
+  <code>InpBufSLX</code> 0.10, <code>InpBodyBreakTol</code> 0, <code>InpRrRatio</code> 2.0):
+  break 2402.80, entry 2403.40, SL 2401.40, TP 2407.40. Nilai sebenarnya selalu dihitung dari ATR
+  dan input indikator. Referensi: <a href="entry-requirement-final.html">entry-requirement-final.html</a>,
+  <a href="entry-visual-arm-p.html">entry-visual-arm-p.html</a>, <code>Docs/Indicator_MT5.md</code>.
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  // --- level & candle (skenario contoh, XAUUSD H1, ATR = 3.00) -------------
+  // Level dihitung EngulfComputeLevels() dari bar S-1, dengan input default
+  // (InpMinBodyX 1.2, InpMinBodyP 50, InpBufEntryX 0.10, InpBufSLX 0.10,
+  // InpBodyBreakTol 0.00, InpRrRatio 2.0). Bar S-1 sengaja dibuat ber-body
+  // tebal (open 2402.80 -> close 2401.70) supaya "break body" terlihat jelas
+  // sebagai pita, bukan garis rambut:
+  //   break = bodyTop(S-1) + 0.00*ATR = 2402.80   (body top = open)
+  //   entry = high(S-1)    + 0.10*ATR = 2403.40   (upper wick 0.30 saja)
+  //   SL    = low(S-1)     - 0.10*ATR = 2401.40   (risk 2.00)
+  //   TP    = entry + 2 * risk        = 2407.40
+  var LV = { brk: 2402.80, entry: 2403.40, sl: 2401.40, tp: 2407.40 };
+  var PX = { min: 2401.05, max: 2407.85 };
+  var HIGH_PREV = 2403.10;   // high(S-1) - ambang engBull (Engulf.mqh)
+
+  var REF = [
+    { label: 'S-2', time: '09:00', o: 2402.40, h: 2403.35, l: 2401.95, c: 2402.80 },
+    { label: 'S-1', time: '10:00', o: 2402.80, h: 2403.10, l: 2401.70, c: 2401.70 }
+  ];
+
+  // path = pergerakan harga DI DALAM candle S (f = fraksi durasi, p = harga).
+  // Open/high/low/close candle S diturunkan dari path ini, jadi harga yang
+  // digambar selalu sama dengan harga yang dipakai untuk memicu level.
+  // Urutan yang ingin diperlihatkan: lewati BREAK BODY -> pola tentatif sah
+  // (dalam 0.03 bar, jadi alert pending terasa "langsung") -> sentuh ENTRY.
+  var SCN = {
+    fill: {
+      path: [
+        { f: 0.00, p: 2401.60 }, { f: 0.08, p: 2401.50 }, { f: 0.18, p: 2402.15 },
+        { f: 0.30, p: 2402.15 }, { f: 0.40, p: 2402.85 }, { f: 0.46, p: 2403.12 },
+        { f: 0.54, p: 2403.20 }, { f: 0.62, p: 2403.42 }, { f: 0.76, p: 2404.10 },
+        { f: 1.00, p: 2403.90 }
+      ],
+      nxt: [
+        { label: 'S+1', time: '12:00', o: 2403.90, h: 2405.20, l: 2403.60, c: 2404.90 },
+        { label: 'S+2', time: '13:00', o: 2404.90, h: 2407.45, l: 2404.70, c: 2406.60 }
+      ]
+    },
+    cancel: {
+      path: [
+        { f: 0.00, p: 2401.60 }, { f: 0.08, p: 2401.50 }, { f: 0.18, p: 2402.15 },
+        { f: 0.30, p: 2402.15 }, { f: 0.40, p: 2402.85 }, { f: 0.46, p: 2403.12 },
+        { f: 0.56, p: 2403.22 }, { f: 0.70, p: 2403.32 }, { f: 0.86, p: 2403.28 },
+        { f: 1.00, p: 2403.22 }
+      ],
+      nxt: [
+        { label: 'S+1', time: '12:00', o: 2403.22, h: 2405.60, l: 2403.00, c: 2405.20 },
+        { label: 'S+2', time: '13:00', o: 2405.20, h: 2406.10, l: 2404.80, c: 2405.90 }
+      ]
+    }
+  };
+
+  var COL = {
+    bg: '#1b1b1b', grid: '#2b2b2b', axis: '#4a4a4a', text: '#9a9a9a',
+    buy: '#26a69a', sell: '#ef5350', entry: '#787b86', body: '#bdbdbd', warn: '#ffeb3b'
+  };
+
+  function $(id) { return document.getElementById(id); }
+  function fmt(v) { return v.toFixed(2); }
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function easeOut(p) { return 1 - Math.pow(1 - p, 3); }
+
+  var cv = $('cv'), ctx = cv.getContext('2d');
+  var capEl = $('caption'), logEl = $('log');
+
+  var st = {
+    scenario: 'fill', t: 0, playing: false, speed: 1, step: 0, ended: false,
+    bars: [], badge: null, cap: '', where: '',
+    panel: {}, lv: { brk: 0, entry: 0, sl: 0, tp: 0 }, lvOn: false, lvOff: false,
+    filled: false, cancelled: false, prov: false, sClosed: false, tp: false,
+    alerts: []
+  };
+
+  // --- timeline ------------------------------------------------------------
+  var HEAD = 'XAUUSD PERIOD_H1';
+  var SETUP_TXT = '2026.10.23 11:00';
+
+  function addAlert(kind, text) { st.alerts.push({ kind: kind, text: text }); renderLog(); }
+
+  function alertArm() {
+    addAlert('arm', HEAD + ' | BREAK BODY BUY @ ' + fmt(LV.brk) + ' | pending entry ' + fmt(LV.entry) +
+      ' | SL ' + fmt(LV.sl) + ' | TP ' + fmt(LV.tp) + ' | RR 1:2.00 | setup ' + SETUP_TXT +
+      ' | bar ' + SETUP_TXT);
+  }
+  function alertFill() {
+    addAlert('fill', HEAD + ' | ENTRY BUY FILLED @ ' + fmt(LV.entry) + ' | SL ' + fmt(LV.sl) +
+      ' | TP ' + fmt(LV.tp) + ' | RR 1:2.00 | break body ' + fmt(LV.brk) + ' | setup ' + SETUP_TXT +
+      ' | fill bar ' + SETUP_TXT);
+  }
+  function alertCancel(closePx) {
+    addAlert('cancel', HEAD + ' | ENTRY BUY CANCELED @ ' + fmt(LV.entry) + ' | close bar ' + fmt(closePx) +
+      ' | SL ' + fmt(LV.sl) + ' | TP ' + fmt(LV.tp) + ' | RR 1:2.00 | setup ' + SETUP_TXT +
+      ' | bar ' + SETUP_TXT);
+  }
+  function alertTp() {
+    addAlert('tp', HEAD + ' | TP HIT BUY @ ' + fmt(LV.tp) + ' | entry ' + fmt(LV.entry) + ' | SL ' +
+      fmt(LV.sl) + ' | RR 1:2.00 | setup ' + SETUP_TXT + ' | result bar 2026.10.23 13:00');
+  }
+
+  // --- turunan candle pola dari path --------------------------------------
+  function flatBar(scn) {
+    var k = SCN[scn].path, hi = k[0].p, lo = k[0].p;
+    for (var i = 1; i < k.length; i++) {
+      if (k[i].p > hi) hi = k[i].p;
+      if (k[i].p < lo) lo = k[i].p;
+    }
+    return { label: 'S', time: '11:00', o: k[0].p, h: hi, l: lo, c: k[k.length - 1].p };
+  }
+
+  function pathAt(b, t) {
+    var p = clamp((t - b.at) / b.dur, 0, 1), k = b.path;
+    for (var i = 1; i < k.length; i++) {
+      if (p <= k[i].f) {
+        var span = k[i].f - k[i - 1].f;
+        var u = span > 0 ? (p - k[i - 1].f) / span : 1;
+        return k[i - 1].p + (k[i].p - k[i - 1].p) * u;
+      }
+    }
+    return k[k.length - 1].p;
+  }
+
+  // waktu pertama candle S menyentuh px dari bawah (null = tidak pernah)
+  function timeUp(px) {
+    var b = st.bars[2], k = b.path;
+    if (k[0].p >= px) return b.at;
+    for (var i = 1; i < k.length; i++) {
+      var a = k[i - 1].p, c = k[i].p;
+      if (c >= px && a < px) {
+        var u = (px - a) / (c - a);
+        return Math.round(b.at + (k[i - 1].f + (k[i].f - k[i - 1].f) * u) * b.dur);
+      }
+    }
+    return null;
+  }
+
+  // waktu wick candle (bukan candle pola) mencapai px, mengikuti easing gambar
+  function timeUpEased(b, px) {
+    var f = (px - b.d.o) / (b.d.h - b.d.o);
+    if (f <= 0) return b.at;
+    if (f >= 1) return b.at + b.dur;
+    return Math.round(b.at + (1 - Math.pow(1 - f, 1 / 3)) * b.dur);
+  }
+
+  var steps = [];
+
+  function buildSteps() {
+    var s = flatBar(st.scenario);
+    var bS = st.bars[2], b1 = st.bars[3], b2 = st.bars[4];
+    var tClose = bS.at + bS.dur;
+    var tBrk = timeUp(LV.brk + 0.01);        // harga lewati BREAK BODY
+    var tPat = timeUp(HIGH_PREV + 0.01);     // pola tentatif sah: close sementara > high(S-1)
+    var tEnt = timeUp(LV.entry + 0.01);      // ENTRY tersentuh
+    var tTp = timeUpEased(b2, LV.tp + 0.005);
+    var out = [];
+
+    out.push({ at: 0, fn: function () {
+      st.cap = 'Riwayat: <b>S&minus;2</b> dan <b>S&minus;1</b> sudah close. Setup dihitung dari S&minus;1: ' +
+               'break ' + fmt(LV.brk) + ', entry ' + fmt(LV.entry) + ', SL ' + fmt(LV.sl) +
+               ', TP ' + fmt(LV.tp) + ' (R:R 1:2.00).';
+      st.where = 'Core.mqh &mdash; DetectEngulfing(i, ...) dievaluasi per bar';
+    }});
+
+    out.push({ at: 450, fn: function () {
+      st.badge = { text: 'S BERJALAN', tone: 'dim' };
+      st.cap = 'Candle <b>S</b> <b>live</b> (label <code>S 11:00 &middot; live</code>, harga terakhir ' +
+               'putus-putus). Pola dicek setiap tick dengan close = harga terakhir, jadi level, ' +
+               'pending, <b>dan alert</b> bisa muncul sebelum candle close.';
+      st.where = 'Core.mqh &mdash; evalBar = notFormingBar || InpAllowFormingBar';
+    }});
+
+    // BREAK BODY hanya memakai badge: caption penuhnya menyusul beberapa
+    // milidetik kemudian saat pola tentatif sah, supaya terasa "langsung".
+    if (tBrk !== null) out.push({ at: tBrk, fn: function () {
+      st.badge = { text: 'BREAK BODY ' + fmt(LV.brk) + ' dilewati', tone: 'dim' };
+    }});
+
+    out.push({ at: tPat === null ? tClose - 900 : Math.max(tPat, (tBrk || 0) + 240), fn: function () {
+      if (tPat === null) {
+        st.cap = 'Harga tidak pernah melewati high(S&minus;1) ' + fmt(HIGH_PREV) + ' &rarr; pola tidak ' +
+                 'sah, jadi tidak ada level, tidak ada pending, dan tidak ada alert walau modus ' +
+                 'intrabar aktif.';
+        st.where = 'Engulf.mqh &mdash; sig.buy = false';
+        return;
+      }
+      st.prov = true;
+      st.lvOn = true;
+      st.panel.signals = 1;
+      st.panel.status = 'PENDING BUY';
+      st.badge = { text: 'PENDING ' + fmt(LV.entry), tone: 'warn' };
+      alertArm();
+      st.cap = 'Candle S <b>live</b>: harga melewati BREAK BODY <b>' + fmt(LV.brk) + '</b>, lalu ' +
+               'high(S&minus;1) ' + fmt(HIGH_PREV) + ' di tick berikutnya &rarr; pola <b>tentatif</b> ' +
+               'sah. Level dihitung, pending dipasang di ' + fmt(LV.entry) + ', dan alert ' +
+               '<b>BREAK BODY &hellip; pending entry ' + fmt(LV.entry) + '</b> langsung terbit ' +
+               '<b>sekarang</b> &mdash; tanpa menunggu bar S close.';
+      st.where = 'Core.mqh &mdash; evalBar (level) + alertArmFillBar (alert arm/fill)';
+      syncPanel();
+    }});
+
+    if (tEnt !== null) {
+      out.push({ at: tEnt, fn: function () {
+        st.filled = true;
+        st.badge = { text: 'FILLED ' + fmt(LV.entry), tone: 'buy' };
+        st.panel.status = 'BUY';
+        st.panel.runs = 1;
+        alertFill();
+        st.cap = 'Harga menyentuh ENTRY ' + fmt(LV.entry) + ' selagi candle S <b>masih berjalan</b> ' +
+                 '&rarr; BUY_ACTIVE intrabar, buffer EA di bar berjalan ikut terisi, dan alert ' +
+                 '<b>ENTRY BUY FILLED ' + fmt(LV.entry) + '</b> terbit saat itu juga.';
+        st.where = 'Core.mqh &mdash; break body trigger + pending fill pada bar pola';
+        syncPanel();
+      }});
+    } else {
+      out.push({ at: tPat + 700, fn: function () {
+        st.cap = 'Pending parkir di ' + fmt(LV.entry) + ', high sementara baru ' + fmt(s.h) +
+                 ' &rarr; belum terisi. Pending tetap hidup selama candle S berjalan.';
+        st.where = 'High sementara &lt; ENTRY';
+      }});
+    }
+
+    out.push({ at: tClose, fn: function () {
+      st.sClosed = true;
+      st.prov = false;
+      st.badge = { text: 'BAR S CLOSE', tone: 'dim' };
+      if (st.scenario === 'cancel') {
+        st.cancelled = true;
+        st.lvOff = true;
+        st.panel.cancel = 1;
+        st.panel.status = 'NONE';
+        alertCancel(s.c);
+        st.cap = 'Close S ' + fmt(s.c) + ' &le; ENTRY ' + fmt(LV.entry) + ' &rarr; <b>cancel</b>. ' +
+                 'Pending yang sempat hidup intrabar dihapus, state NONE, dan alert CANCELED terbit ' +
+                 'di close (cancel memang keputusan close, jadi tetap menunggu bar).';
+        st.where = 'Core.mqh &mdash; cancel at setup bar close (notFormingBar)';
+      } else {
+        st.panel.status = 'BUY';
+        st.cap = 'Close S ' + fmt(s.c) + ' &gt; high(S&minus;1) ' + fmt(HIGH_PREV) + ' &rarr; pola sah, ' +
+                 'pending &amp; fill intrabar dipertahankan. <b>Tidak ada alert baru</b>: BREAK BODY dan ' +
+                 'ENTRY FILLED sudah terbit intrabar, dan dedupe EngulfAlertOnce mencegah duplikat ' +
+                 'saat bar yang sama dievaluasi lagi sebagai bar close.';
+        st.where = 'EngulfAlertOnce &mdash; kunci per waktu bar event';
+      }
+      syncPanel();
+    }});
+
+    return finish(out, s, b1, b2, tTp, tClose);
+  }
+
+  // --- sisa siklus setelah bar S (sama untuk semua skenario) ----------------
+  function finish(out, s, b1, b2, tTp, tClose) {
+    var fill = st.scenario === 'fill';
+
+    out.push({ at: b1.at + 300, fn: function () {
+      st.badge = null;
+      st.cap = fill
+        ? 'Bar S+1: setup ACTIVE, garis digeser ke kanan setiap bar (InpExtendB). Status panel <b>BUY</b>.'
+        : 'Bar S+1: tidak ada order tersisa, semua garis setup sudah dihapus di close bar S.';
+      st.where = fill ? 'Core.mqh &mdash; EXTEND ACTIVE SETUP' : 'Tidak ada state tersisa dari bar S';
+    }});
+
+    out.push({ at: b2.at, fn: function () {
+      st.cap = fill
+        ? 'Bar S+2: harga menuju TP ' + fmt(LV.tp) + '. Hasil TP/SL tetap boleh keluar intrabar.'
+        : 'Bar S+2: tidak ada order dan tidak ada alert &mdash; siklus sudah selesai di bar S.';
+      st.where = 'Blok hasil TP/SL (tidak digerbang closedBar)';
+    }});
+
+    if (fill) {
+      out.push({ at: tTp, fn: function () {
+        st.tp = true;
+        st.panel.status = 'NONE';
+        st.panel.buyWins = 1;
+        st.panel.tpStreak = 1;
+        alertTp();
+        st.cap = '<b>TP HIT</b> @ ' + fmt(LV.tp) + ' &rarr; state NONE, TP Streak 1, Buy % 100.00.';
+        st.where = 'Alert TP memakai bar hasil (intrabar diperbolehkan)';
+        syncPanel();
+      }});
+    }
+
+    out.push({ at: (fill ? tTp : b2.at + 600) + 900, fn: function () {
+      st.playing = false;
+      st.ended = true;
+      setPlayLabel();
+      st.cap = fill
+        ? 'Selesai: 1 pola &rarr; 3 alert (BREAK BODY dan ENTRY FILLED sudah terbit selagi candle S ' +
+          'berjalan, TP HIT intrabar). Tidak ada pending yang menggantung.'
+        : 'Selesai: 1 pola &rarr; 2 alert (BREAK BODY intrabar, ENTRY CANCELED di close). ' +
+          'Tidak ada order tersisa.';
+      st.where = 'Core.mqh &mdash; recompute penuh tiap tick (pass 1 &amp; 2)';
+    }});
+
+    return out;
+  }
+
+  // --- canvas --------------------------------------------------------------
+  var L = { w: 760, h: 400, padL: 10, padR: 104, padT: 26, padB: 34 };
+
+  function resize() {
+    var w = cv.parentElement.clientWidth - 18;
+    if (w < 320) w = 320;
+    var h = Math.round(w * 400 / 760);
+    var dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(h * dpr);
+    cv.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    L.w = w;
+    L.h = h;
+  }
+
+  function slotW() { return (L.w - L.padL - L.padR) / 5.2; }
+  function xOf(i) { return L.padL + slotW() * (i + 0.5); }
+  function yOf(p) {
+    return (L.h - L.padB) - (p - PX.min) / (PX.max - PX.min) * (L.h - L.padB - L.padT);
+  }
+
+  // tick harga bulat supaya skala mudah dibaca
+  function tickList() {
+    var span = PX.max - PX.min;
+    var step = span > 4 ? 1 : (span > 2 ? 0.5 : 0.25);
+    var first = Math.ceil(PX.min / step) * step;
+    var out = [];
+    for (var v = first; v <= PX.max + 1e-9; v += step) out.push(Math.round(v * 100) / 100);
+    return out;
+  }
+
+  function hline(x0, x1, y, color, width, dash) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width || 1;
+    ctx.setLineDash(dash || []);
+    ctx.beginPath();
+    ctx.moveTo(x0, y);
+    ctx.lineTo(x1, y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function vline(x, y0, y1, color) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, y0);
+    ctx.lineTo(x, y1);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawFrame() {
+    var g = ctx;
+    g.clearRect(0, 0, L.w, L.h);
+    g.fillStyle = COL.bg;
+    g.fillRect(0, 0, L.w, L.h);
+    g.textBaseline = 'middle';
+
+    // grid + harga (tick bulat, label di kiri dalam plot)
+    g.font = '10px Consolas, monospace';
+    var ticks = tickList();
+    for (var k = 0; k < ticks.length; k++) {
+      var y = yOf(ticks[k]);
+      hline(L.padL, L.w - L.padR, y, '#2a2a2a', 1, []);
+      g.fillStyle = '#6e6e6e';
+      g.textAlign = 'left';
+      g.fillText(ticks[k].toFixed(2), L.padL + 3, y - 8);
+    }
+
+    for (var i = 1; i < st.bars.length; i++) {
+      vline(xOf(i) - slotW() / 2, L.padT, L.h - L.padB, '#262626');
+    }
+
+    for (var b = 0; b < st.bars.length; b++) drawCandle(st.bars[b], b);
+
+    // --- level sudah aktif tapi pola belum dikonfirmasi close bar S ----------
+    if (st.prov && !st.sClosed) {
+      g.fillStyle = COL.warn;
+      g.font = 'bold 10px Consolas, monospace';
+      g.textAlign = 'center';
+      g.fillText('level sementara \u2014 pola belum dikonfirmasi close bar S',
+                 L.padL + (L.w - L.padL - L.padR) / 2, L.padT + 8);
+    }
+
+    // --- level setup (fade in saat dibuat, fade out saat cancel) ------------
+    var target = (st.lvOn && !st.lvOff) ? 1 : 0;
+    var keys = ['brk', 'entry', 'sl', 'tp'];
+    for (var q = 0; q < keys.length; q++) {
+      st.lv[keys[q]] += (target - st.lv[keys[q]]) * 0.16;
+    }
+
+    var x0 = xOf(2);
+    var x1 = L.w - L.padR;
+
+    function tag(txt, y, col, a) {
+      g.globalAlpha = a;
+      g.fillStyle = col;
+      g.font = 'bold 10px Consolas, monospace';
+      g.textAlign = 'left';
+      g.fillText(txt + (st.prov ? ' *' : ''), x1 + 6, y);
+      g.globalAlpha = 1;
+    }
+
+    if (st.lv.brk > 0.02) {
+      g.globalAlpha = st.lv.brk;
+      hline(x0, x1, yOf(LV.brk), COL.body, 1, [6, 4]);
+      g.globalAlpha = 1;
+      tag('BREAK ' + fmt(LV.brk), yOf(LV.brk), COL.body, st.lv.brk);
+    }
+    if (st.lv.entry > 0.02) {
+      var ec = st.filled ? COL.buy : COL.entry;
+      g.globalAlpha = st.lv.entry;
+      hline(x0, x1, yOf(LV.entry), ec, st.filled ? 2 : 1, []);
+      g.globalAlpha = 1;
+      tag((st.filled ? 'BUY ' : 'ENTRY ') + fmt(LV.entry), yOf(LV.entry), ec, st.lv.entry);
+    }
+    if (st.lv.sl > 0.02) {
+      g.globalAlpha = st.lv.sl;
+      hline(x0, x1, yOf(LV.sl), COL.sell, 1, []);
+      g.globalAlpha = 1;
+      tag('SL ' + fmt(LV.sl), yOf(LV.sl), COL.sell, st.lv.sl);
+    }
+    if (st.lv.tp > 0.02) {
+      g.globalAlpha = st.lv.tp;
+      hline(x0, x1, yOf(LV.tp), COL.buy, 1, []);
+      g.globalAlpha = 1;
+      tag('TP ' + fmt(LV.tp), yOf(LV.tp), COL.buy, st.lv.tp);
+    }
+
+    // bekas level ENTRY setelah cancel (muncul saat garis asli memudar)
+    if (st.cancelled) {
+      var ga = (1 - st.lv.entry) * 0.42;
+      g.globalAlpha = ga;
+      hline(x0, x1, yOf(LV.entry), '#6f7076', 1, [3, 5]);
+      g.globalAlpha = 1;
+      tag('ENTRY (cancel)', yOf(LV.entry), '#6a6a6a', ga);
+
+      var ay = yOf(LV.entry);
+      var ax = x0 - 16;
+      g.globalAlpha = Math.min(1, ga + 0.35);
+      g.strokeStyle = COL.sell;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(ax - 4, ay - 4);
+      g.lineTo(ax + 4, ay + 4);
+      g.moveTo(ax + 4, ay - 4);
+      g.lineTo(ax - 4, ay + 4);
+      g.stroke();
+      g.globalAlpha = 1;
+    }
+
+    // --- penanda fill / TP --------------------------------------------------
+    if (st.filled) {
+      g.beginPath();
+      g.arc(x0, yOf(LV.entry), 4, 0, Math.PI * 2);
+      g.fillStyle = COL.buy;
+      g.fill();
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 1;
+      g.stroke();
+    }
+    if (st.tp) {
+      var tx = xOf(4);
+      g.beginPath();
+      g.arc(tx, yOf(LV.tp), 4.5, 0, Math.PI * 2);
+      g.fillStyle = COL.buy;
+      g.fill();
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.fillStyle = COL.buy;
+      g.font = 'bold 10px Consolas, monospace';
+      g.textAlign = 'right';
+      g.fillText('TP HIT', tx - 9, yOf(LV.tp) - 13);
+    }
+
+    // --- badge di atas candle pola -----------------------------------------
+    if (st.badge) {
+      var tone = st.badge.tone === 'buy' ? COL.buy :
+                 (st.badge.tone === 'sell' ? COL.sell :
+                 (st.badge.tone === 'warn' ? COL.warn : '#a8a8a8'));
+      var bx = x0;
+      var by = Math.max(L.padT + 10, yOf(st.bars[2].d.h) - 18);
+      g.font = 'bold 11px Arial, Helvetica, sans-serif';
+      var tw = g.measureText(st.badge.text).width;
+      roundRect(bx - tw / 2 - 8, by - 10, tw + 16, 20, 5);
+      g.fillStyle = 'rgba(12,12,12,0.92)';
+      g.fill();
+      g.strokeStyle = tone;
+      g.lineWidth = 1;
+      g.stroke();
+      g.fillStyle = tone;
+      g.textAlign = 'center';
+      g.fillText(st.badge.text, bx, by);
+      g.textAlign = 'left';
+    }
+  }
+
+  function drawCandle(b, i) {
+    var p = clamp((st.t - b.at) / b.dur, 0, 1);
+    if (p <= 0) return;
+
+    var x = xOf(i);
+    var bw = Math.max(7, slotW() * 0.52);
+    var live = !!b.isPattern && !st.sClosed;
+    var o, c, hi, lo;
+
+    if (b.path) {
+      // candle pola: harga mengikuti path, wick = extreme yang sudah dilalui
+      o = b.path[0].p;
+      c = pathAt(b, st.t);
+      hi = o; lo = o;
+      for (var k = 1; k < b.path.length; k++) {
+        if (b.path[k].f <= p + 1e-9) {
+          if (b.path[k].p > hi) hi = b.path[k].p;
+          if (b.path[k].p < lo) lo = b.path[k].p;
+        }
+      }
+      if (c > hi) hi = c;
+      if (c < lo) lo = c;
+    } else {
+      var e = easeOut(p);
+      o = b.d.o;
+      c = b.d.o + (b.d.c - b.d.o) * e;
+      hi = b.d.o + (b.d.h - b.d.o) * e;
+      lo = b.d.o + (b.d.l - b.d.o) * e;
+    }
+
+    var up = c >= o;
+    var col = up ? COL.buy : COL.sell;
+
+    ctx.globalAlpha = live ? 0.62 : 1;
+    ctx.strokeStyle = col;
+    ctx.fillStyle = col;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, yOf(hi));
+    ctx.lineTo(x, yOf(lo));
+    ctx.stroke();
+
+    var top = yOf(Math.max(o, c));
+    var bot = yOf(Math.min(o, c));
+    ctx.fillRect(x - bw / 2, top, bw, Math.max(1.5, bot - top));
+
+    if (live) {
+      var yc = yOf(c);
+      ctx.globalAlpha = 0.9;
+      hline(L.padL, L.w - L.padR, yc, col, 1, [2, 3]);
+      ctx.fillStyle = col;
+      ctx.font = '10px Consolas, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(fmt(c), x + bw / 2 + 5, yc - 8);
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = b.isPattern ? COL.warn : '#8a8a8a';
+    ctx.font = '10px Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(b.d.label + ' ' + b.d.time + (live ? ' \u00b7 live' : ''), x, L.h - L.padB + 13);
+  }
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function renderLog() {
+    if (!st.alerts.length) {
+      logEl.innerHTML = '<div class="empty">belum ada alert</div>';
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < st.alerts.length; i++) {
+      html += '<div class="item ' + st.alerts[i].kind + '">' + escapeHtml(st.alerts[i].text) + '</div>';
+    }
+    logEl.innerHTML = html;
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function renderCaption() {
+    capEl.innerHTML = st.cap + (st.where ? '<span class="where">' + st.where + '</span>' : '');
+  }
+
+  function pctStr(w, l) {
+    var n = w + l;
+    return n ? (100 * w / n).toFixed(2) + '%' : '0.00%';
+  }
+
+  function syncPanel() {
+    var p = st.panel;
+    $('pRR').textContent = p.rr;
+    var sEl = $('pStatus');
+    sEl.textContent = p.status;
+    sEl.style.color = (p.status === 'BUY' || p.status === 'PENDING BUY') ? '#26a69a'
+                     : ((p.status === 'SELL' || p.status === 'PENDING SELL') ? '#ef5350' : '#c0c0c0');
+    $('pCancel').textContent = p.cancel;
+    $('pSignals').textContent = p.signals;
+    $('pRuns').textContent = p.runs;
+    $('pBuy').textContent = pctStr(p.buyWins, p.buyLoss);
+    $('pSell').textContent = pctStr(p.sellWins, p.sellLoss);
+    $('pTP').textContent = p.tpStreak;
+    $('pSL').textContent = p.slStreak;
+    $('pProb').textContent = pctStr(p.buyWins + p.sellWins, p.buyLoss + p.sellLoss);
+  }
+
+  function setPlayLabel() {
+    $('btnPlay').textContent = st.playing ? 'Jeda' : (st.ended ? 'Putar lagi' : 'Putar');
+  }
+
+  function reset(scn) {
+    if (scn) st.scenario = scn;
+    st.t = 0; st.step = 0; st.ended = false; st.sClosed = false;
+    st.badge = null; st.cap = ''; st.where = '';
+    st.lv = { brk: 0, entry: 0, sl: 0, tp: 0 };
+    st.lvOn = false; st.lvOff = false;
+    st.filled = false; st.cancelled = false; st.prov = false; st.tp = false;
+    st.alerts = [];
+    st.panel = { rr: '1:2.00', status: 'NONE', cancel: 0, signals: 0, runs: 0,
+                 buyWins: 0, buyLoss: 0, sellWins: 0, sellLoss: 0, tpStreak: 0, slStreak: 0 };
+
+    var s = SCN[st.scenario];
+    st.bars = [
+      { d: REF[0], at: 0, dur: 520 },
+      { d: REF[1], at: 120, dur: 520 },
+      { d: flatBar(st.scenario), at: 600, dur: 3200, isPattern: true, path: s.path },
+      { d: s.nxt[0], at: 3850, dur: 800 },
+      { d: s.nxt[1], at: 4700, dur: 800 }
+    ];
+
+    steps = buildSteps();
+    renderLog();
+    renderCaption();
+    syncPanel();
+    setPlayLabel();
+  }
+
+  // --- loop + kontrol ------------------------------------------------------
+  var lastTs = 0;
+
+  function frame(ts) {
+    if (!lastTs) lastTs = ts;
+    var dt = Math.min(80, ts - lastTs);
+    lastTs = ts;
+
+    if (st.playing) {
+      st.t += dt * st.speed;
+      var changed = false;
+      while (st.step < steps.length && st.t >= steps[st.step].at) {
+        steps[st.step].fn();
+        st.step++;
+        changed = true;
+      }
+      if (changed) renderCaption();
+    }
+
+    drawFrame();
+    requestAnimationFrame(frame);
+  }
+
+  function setScenario(scn) {
+    st.scenario = scn;
+    markButtons();
+    reset(scn);
+    st.playing = true;
+    lastTs = 0;
+    setPlayLabel();
+  }
+
+  function markButtons() {
+    $('btnFill').classList.toggle('on', st.scenario === 'fill');
+    $('btnCancel').classList.toggle('on', st.scenario === 'cancel');
+  }
+
+  $('btnFill').addEventListener('click', function () { setScenario('fill'); });
+  $('btnCancel').addEventListener('click', function () { setScenario('cancel'); });
+
+  $('btnPlay').addEventListener('click', function () {
+    if (st.ended) {
+      reset();
+      st.ended = false;
+    }
+    st.playing = !st.playing;
+    lastTs = 0;
+    setPlayLabel();
+  });
+
+  $('btnRestart').addEventListener('click', function () {
+    reset();
+    st.playing = true;
+    lastTs = 0;
+    setPlayLabel();
+  });
+
+  $('speed').addEventListener('change', function (e) {
+    st.speed = parseFloat(e.target.value) || 1;
+  });
+
+  window.addEventListener('resize', function () { resize(); });
+
+  resize();
+
+  // deep link: ?scn=fill|cancel&t=3200
+  var q = (window.location && window.location.search) || '';
+  var mScn = /[?&]scn=(fill|cancel)/.exec(q);
+  var mT = /[?&]t=(\d+)/.exec(q);
+  if (mScn) st.scenario = mScn[1];
+
+  markButtons();
+  reset();
+
+  if (mT) {
+    st.playing = false;
+    st.t = parseInt(mT[1], 10);
+    while (st.step < steps.length && st.t >= steps[st.step].at) {
+      steps[st.step].fn();
+      st.step++;
+    }
+    renderCaption();
+  } else {
+    st.playing = true;
+  }
+
+  setPlayLabel();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
+

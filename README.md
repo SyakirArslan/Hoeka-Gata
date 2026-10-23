@@ -17,7 +17,10 @@ sumber aturan sekaligus alat validasi visual.
 | Pine Script Engulfing Breakout (lengkap) | `Source/HoekaGata_Indicator.pine` | [`Docs/TradingView.md`](Docs/TradingView.md) |
 | Pine Script Engulfing Breakout (draft lama) | `Source/HoekaGata_Indicator_Engulf.pine` | [`Docs/TradingView.md`](Docs/TradingView.md) |
 | Mockup panel hasil (HTML) | `Main/Docs/panel-mockup.html` | Acuan layout panel indikator |
-| Visual timing alert (HTML) | `Main/Docs/entry-alert-timing.html` | Kapan alert BREAK BODY / ENTRY / TP / SL keluar |
+| Spesifikasi requirement entry (HTML) | `Main/Docs/entry-requirement-final.html` | Aturan final: pemicu, fill, dan cancel di bar pola (R1.1–R1.7, D1–D5) |
+| Requirement intrabar / anti-VOID (HTML) | `Main/Docs/entry-requirement-intrabar-lock.html` | R2: setup intrabar dikunci, level beku, tidak ada lagi jalur VOID (D6–D10 = A, v2.04) |
+| Visual aturan A = P (HTML) | `Main/Docs/entry-visual-arm-p.html` | Dua outcome di bar pola: filled vs canceled, plus konsekuensinya |
+| Animasi alur pending → fill/cancel (HTML) | `Main/Docs/entry-animation.html` | Replay modus intrabar: pending dan alert arm/fill terbit saat candle S berjalan (skenario fill dan cancel), plus panel dan log alert |
 | Build & deploy otomatis | `Main/Tools/Build-MT5.ps1` | [`Docs/Indicator_MT5.md`](Docs/Indicator_MT5.md#build-dan-deploy) |
 | AI skill (build & MT5) | `.claude/skills/hoekagata-build/SKILL.md`, `.claude/skills/hoekagata-mt5/SKILL.md` | Alur compile/deploy otomatis untuk agent |
 | Position Sizer (pihak ketiga) | `Main/MQL5/RiskCalculator/` | Utility risk calculator, bukan bagian signal engine |
@@ -69,7 +72,10 @@ MT5 — HoekaGataAlgo EA     (filter risk/spread/time + eksekusi order)
 Main/
   Docs/
     panel-mockup.html                Mockup HTML panel statistik indikator (acuan layout)
-    entry-alert-timing.html          Visual kapan alert BREAK BODY / ENTRY / TP / SL keluar
+    entry-requirement-final.html     Spesifikasi final requirement entry (R1.1-R1.7, D1-D5)
+    entry-requirement-intrabar-lock.html  R2: kunci setup intrabar (anti-VOID, level beku, v2.04)
+    entry-visual-arm-p.html          Visual aturan A = P: filled vs canceled di bar pola
+    entry-animation.html             Animasi modus intrabar: pending & alert arm/fill saat candle S berjalan
   Tools/
     Build-MT5.ps1                    Compile + deploy indikator & EA ke terminal MT5
   MQL5/
@@ -134,7 +140,8 @@ dengan SHA256.
    [`Docs/Indicator_MT5.md`](Docs/Indicator_MT5.md#referensi-input)).
 3. Panel statistik muncul di sudut kanan atas: status setup, R:R, jumlah signal/entry, win rate per
    arah, streak TP/SL, dan probabilitas keseluruhan.
-4. Alert muncul pada 5 kejadian: break body, entry, TP hit, SL hit, dan cancel.
+4. Alert muncul pada 6 kejadian: break body, entry filled, entry canceled (close bar pola), TP hit,
+   SL hit, dan cancel karena pola berlawanan.
 
 ### EA MT5
 
@@ -164,6 +171,25 @@ handle `iCustom`. Detail lengkap: [`Docs/Indicator_MT5.md`](Docs/Indicator_MT5.m
 
 - Indikator memakai 4 buffer dan 2 plot `DRAW_NONE`; jumlah buffer tidak boleh diubah karena EA
   membaca indeks 0..3.
+- Sejak **v2.02** aturan entry adalah **A = P**: pemicu BREAK BODY, fill, dan cancel semuanya
+  dievaluasi di bar pola. Tidak ada pending yang menunggu ke bar berikutnya, jadi dengan default panel
+  tidak pernah menampilkan `PENDING`; setup berakhir `BUY`/`SELL` (filled) atau `NONE` (canceled).
+- Sejak **v2.03** pola hanya dibuat untuk bar yang **sudah close** (`i < rates_total - 1`), sehingga
+  panel, counter, dan buffer EA tidak berubah di tengah candle; EA tetap entry di tick pertama setelah
+  bar pola close. De-dup alert juga disimpan di `GlobalVariable` `HG_AL_*`, jadi re-attach / ganti
+  timeframe tidak mengulang alert bar terakhir.
+- **Pending saat candle pola berjalan** tersedia lewat input `InpAllowFormingBar` (default `false`).
+  Bila diaktifkan, guard `i < rates_total - 1` dilepas untuk deteksi pola/trigger/fill, jadi level dan
+  label `PENDING BUY/SELL` muncul di dalam candle S dan panel menampilkan `PENDING`. Alert ikut
+  intrabar: `BREAK BODY … pending entry …` terbit begitu pola tentatif sah (siap dipakai memasang
+  pending) dan `ENTRY … FILLED` terbit begitu harga menyentuh entry, masing-masing sekali per bar
+  (dedupe `EngulfAlertOnce`). Cancel-at-close dan aturan "setup tanpa break body" tetap menunggu bar
+  close (pada candle berjalan `close` masih harga terakhir), dan alert `CANCELED` juga baru terbit di
+  close. Sejak **v2.04** setup seperti itu dikunci (`g_engulfLocks` di `Core.mqh`): level yang
+  diumumkan dibekukan, yang filled tetap `BUY`/`SELL` sampai TP/SL (buffer EA tetap terisi), yang armed
+  berakhir `CANCELED` di close — **tidak ada lagi jalur VOID**. EA dengan `InpUseClosedBarSignal =
+  false` tetap entry pada sinyal yang belum confirmed (itu memang tujuan modus intrabar). Requirement:
+  `Main/Docs/entry-requirement-intrabar-lock.html`.
 - Panel statistik memakai `OBJ_LABEL` / `OBJ_RECTANGLE_LABEL` dengan latar transparan; teks putih
   dirancang untuk theme chart gelap.
 - Panel di-repaint dari snapshot cache pada `CHARTEVENT_CHART_CHANGE` / `CHARTEVENT_MOUSE_WHEEL`,

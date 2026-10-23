@@ -4,7 +4,7 @@
 //+------------------------------------------------------------------+
 #property copyright "HoekaGata conversion workspace"
 #property link      ""
-#property version   "2.01"
+#property version   "2.04"
 #property indicator_chart_window
 #property indicator_buffers 4
 #property indicator_plots   2

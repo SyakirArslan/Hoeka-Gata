@@ -46,8 +46,10 @@ struct EngulfSignal
 };
 
 // Evaluates the engulfing pattern on the bar at "index" using the previous bar
-// at "index-1". Returns buy/sell flags exactly like .pine sigBuy / sigSell
-// (barstate.isconfirmed is guaranteed because we only evaluate closed bars).
+// at "index-1". Returns buy/sell flags exactly like .pine sigBuy / sigSell.
+// With InpAllowFormingBar = true the last bar is still forming, so "close"
+// there means the current price and the result can still change until the
+// candle closes (same as Pine without barstate.isconfirmed).
 EngulfSignal DetectEngulfing(const int index, const double &open[], const double &high[], const double &low[], const double &close[])
 {
    EngulfSignal sig;

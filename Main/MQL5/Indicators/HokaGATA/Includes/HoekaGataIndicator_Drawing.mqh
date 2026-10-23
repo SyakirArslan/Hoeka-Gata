@@ -153,6 +153,32 @@ void EngulfDeleteObject(const string name)
    ObjectDelete(0, name);
 }
 
+// Removes every object that belongs to one setup (Entry / SL / TP lines and
+// labels plus the BREAK BODY line/label) and clears the names so the extend
+// block cannot keep stretching deleted objects. Used when a setup dies without
+// ever filling: close-at-setup-bar cancel (D4 = B) and a setup that never
+// touched BREAK BODY.
+void EngulfClearSetupVisuals(EngulfSetup &s)
+{
+   EngulfDeleteObject(s.lnE);
+   EngulfDeleteObject(s.lnS);
+   EngulfDeleteObject(s.lnT);
+   EngulfDeleteObject(s.lbE);
+   EngulfDeleteObject(s.lbS);
+   EngulfDeleteObject(s.lbT);
+   EngulfDeleteObject(s.lnBody);
+   EngulfDeleteObject(s.lbBody);
+
+   s.lnE = "";
+   s.lnS = "";
+   s.lnT = "";
+   s.lbE = "";
+   s.lbS = "";
+   s.lbT = "";
+   s.lnBody = "";
+   s.lbBody = "";
+}
+
 void EngulfDeleteByPrefix(const string prefix)
 {
    for(int i = ObjectsTotal(0, -1, -1) - 1; i >= 0; i--)

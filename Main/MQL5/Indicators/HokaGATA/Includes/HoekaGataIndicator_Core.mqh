@@ -32,6 +32,7 @@ struct EngulfAlertFlags
    bool tpHitNow;
    bool slHitNow;
    bool cancelledNow;
+   bool closeCancelNow;
    int  cancelledDir;
    int  resultDir;
 
@@ -46,6 +47,7 @@ struct EngulfAlertFlags
    double evEntry;
    double evSL;
    double evTP;
+   double evClose;
 };
 
 // Alert de-duplication. RecalculateEngulfing() replays every bar from scratch
@@ -57,13 +59,37 @@ string EngulfAlertKeyEntry  = "";
 string EngulfAlertKeyTP     = "";
 string EngulfAlertKeySL     = "";
 string EngulfAlertKeyCancel = "";
+string EngulfAlertKeyCancelClose = "";
 
-bool EngulfAlertOnce(string &lastKey, const string key)
+// Nama terminal global variable untuk menandai bar terakhir yang sudah
+// diumumkan per jenis event (dipisah chart & timeframe).
+string EngulfAlertSeenName(const string tag)
+{
+   return "HG_AL_" + IntegerToString(ChartID()) + "_" +
+          IntegerToString(PeriodSeconds(_Period)) + "_" + tag;
+}
+
+// Reload indikator, ganti timeframe, atau restart terminal mereset variabel di
+// atas, sehingga bar close terakhir diumumkan ulang. Karena itu waktu bar event
+// juga disimpan sebagai terminal global variable: event yang bar-nya tidak lebih
+// baru dari catatan terakhir dianggap sudah terkirim. Variable ini sengaja TIDAK
+// dihapus di OnDeinit - justru itu yang menahan duplikat saat re-attach.
+bool EngulfAlertOnce(string &lastKey, const string key, const string tag, const datetime eventTime)
 {
    if(key == "" || key == lastKey)
       return false;
 
+   string seenName = EngulfAlertSeenName(tag);
+
+   if(eventTime > 0 && GlobalVariableCheck(seenName) &&
+      eventTime <= (datetime)(long)GlobalVariableGet(seenName))
+      return false;
+
    lastKey = key;
+
+   if(eventTime > 0)
+      GlobalVariableSet(seenName, (double)eventTime);
+
    return true;
 }
 
@@ -154,9 +180,113 @@ void EngulfComputeLevels(const int dir, const double o1, const double c1,
 }
 
 // =====================================================
+// KUNCI SETUP INTRABAR (v2.04, requirement R2)
+// RecalculateEngulfing() me-replay seluruh histori pada setiap tick dan tidak
+// menyimpan state di antara tick. Pola hanya sah bila DetectEngulfing() lolos,
+// dan syaratnya memakai close (close > high(S-1) untuk BUY). Di dalam candle
+// yang masih berjalan close hanyalah harga terakhir, jadi setup yang sempat
+// terbit bisa hilang begitu harga berbalik sebelum close: level, garis, panel,
+// dan buffer EA lenyap, padahal alert arm/fill dan (dengan shift 0) posisi EA
+// sudah ada. Itulah jalur "void" yang dihapus dari Docs/entry-animation.html.
+//
+// Tabel ini menyimpan level setup yang lahir di bar terakhir (candle berjalan)
+// supaya replay berikutnya bisa membangun ulang setup itu tanpa mengenali pola
+// lagi, dan supaya level yang sudah diumumkan tidak bergeser saat close (ATR
+// bar S memakai range final, jadi hitungan ulang bisa menggeser entry/SL/TP
+// yang sudah diumumkan lewat alert). Satu entri per bar yang pernah punya setup
+// intrabar, urut naik menurut waktu bar.
+// =====================================================
+struct EngulfLock
+{
+   datetime barTime;
+   int      dir;
+   double   pBreak;
+   double   pEntry;
+   double   pSL;
+   double   pTP;
+   bool     filled;
+};
+
+EngulfLock g_engulfLocks[];          // urut naik menurut barTime
+
+// Binary search: dipanggil untuk setiap bar pada setiap replay (ribuan bar per
+// tick), jadi tidak boleh linear. Tidak ada batas jumlah entri - membuang entri
+// akan menghidupkan lagi gejala void pada histori lama.
+int EngulfLockFind(const datetime barTime)
+{
+   int lo = 0;
+   int hi = ArraySize(g_engulfLocks) - 1;
+
+   while(lo <= hi)
+   {
+      int mid = (lo + hi) / 2;
+
+      if(g_engulfLocks[mid].barTime == barTime)
+         return mid;
+
+      if(g_engulfLocks[mid].barTime < barTime)
+         lo = mid + 1;
+      else
+         hi = mid - 1;
+   }
+
+   return -1;
+}
+
+void EngulfLockStore(const datetime barTime, const int dir,
+                     const double pBreak, const double pEntry,
+                     const double pSL, const double pTP)
+{
+   if(EngulfLockFind(barTime) >= 0)
+      return;
+
+   int size = ArraySize(g_engulfLocks);
+   ArrayResize(g_engulfLocks, size + 1);
+
+   // Bar baru selalu yang paling akhir, jadi sisipan hampir selalu append.
+   int at = size;
+   while(at > 0 && g_engulfLocks[at - 1].barTime > barTime)
+   {
+      g_engulfLocks[at] = g_engulfLocks[at - 1];
+      at--;
+   }
+
+   g_engulfLocks[at].barTime = barTime;
+   g_engulfLocks[at].dir      = dir;
+   g_engulfLocks[at].pBreak   = pBreak;
+   g_engulfLocks[at].pEntry   = pEntry;
+   g_engulfLocks[at].pSL      = pSL;
+   g_engulfLocks[at].pTP      = pTP;
+   g_engulfLocks[at].filled   = false;
+}
+
+void EngulfLockMarkFilled(const datetime barTime)
+{
+   int k = EngulfLockFind(barTime);
+   if(k >= 0)
+      g_engulfLocks[k].filled = true;
+}
+
+// =====================================================
 // MAIN ENGINE
-// Mirrors .pine: STATE -> OPPOSITE CANCEL -> BREAK BODY -> PENDING FILL
-//                -> ACTIVE RESULT -> FREEZE -> CREATE NEW SETUP
+// Urutan per bar (v2.02, A = P):
+//   EXTEND -> PATTERN -> OPPOSITE CANCEL -> CREATE NEW SETUP
+//   -> BREAK BODY -> PENDING FILL -> CANCEL AT SETUP BAR CLOSE
+//   -> ACTIVE RESULT -> FREEZE
+// Setup selalu selesai di bar pola: filled atau canceled. Tidak ada pending
+// yang bertahan ke bar berikutnya.
+//
+// Default (InpAllowFormingBar = false): bar pola harus sudah close, jadi
+// panel/counter/buffer EA hanya berubah saat sebuah candle tertutup.
+// InpAllowFormingBar = true: bar pola terakhir (yang masih berjalan) ikut
+// dievaluasi, sehingga level + pending + fill muncul saat candle S berjalan
+// (termasuk alert arm/fill-nya; alert cancel tetap menunggu bar close).
+//
+// R2 (v2.04): setup yang lahir di candle berjalan dikunci di g_engulfLocks.
+// Kalau harga berbalik dan pola tidak lagi lolos di close, replay tidak
+// membuang setup itu - ia dibangun ulang dari level yang terkunci, dan status
+// filled/armed-nya dipertahankan. Jadi tidak ada lagi jalur "void": begitu
+// diumumkan, setup berakhir filled (ACTIVE) atau canceled, tidak pernah hilang.
 //
 // paint = false  -> dry replay: no objects, no alerts (pass 1)
 // paint = true   -> creates objects for setups with an ordinal above
@@ -235,6 +365,7 @@ void RecalculateEngulfing(
       flags.tpHitNow = false;
       flags.slHitNow = false;
       flags.cancelledNow = false;
+      flags.closeCancelNow = false;
       flags.cancelledDir = 0;
       flags.resultDir = 0;
       flags.evDir = 0;
@@ -244,6 +375,7 @@ void RecalculateEngulfing(
       flags.evEntry = 0.0;
       flags.evSL = 0.0;
       flags.evTP = 0.0;
+      flags.evClose = 0.0;
 
       // .pine EXTEND ACTIVE SETUP (state != 0): stretch visuals to bar_index + extendB
       if(state != STATE_NONE && InpShowLines)
@@ -261,12 +393,48 @@ void RecalculateEngulfing(
       }
 
       // .pine PATTERN DETECTION (barstate.isconfirmed -> closed bar)
+      // D1 = A: bar terakhir (rates_total - 1) masih bergerak, jadi bukan
+      // kandidat pola. Guard ini yang membuat klaim "PENDING tidak pernah
+      // tampil" benar - setup hanya dibuat di bar yang sudah close dan siklus
+      // A = P selesai di bar itu juga. Tanpa guard, pola pada candle berjalan
+      // bisa armed/filled intrabar: panel menampilkan PENDING, counter naik
+      // turun, dan EA (shift 0) entry sebelum candle pola confirmed.
+      //
+      // InpAllowFormingBar = true melepas guard ini dengan sengaja: pola,
+      // trigger, dan fill boleh terjadi saat candle pola masih berjalan
+      // (pending intrabar). Dua keputusan yang bergantung pada harga close -
+      // cancel-at-setup-bar-close dan "setup tanpa break body" - tetap memakai
+      // notFormingBar, karena pada candle berjalan close[] hanyalah harga
+      // terakhir dan keputusan itu akan membuang pending yang baru dipasang.
+      // Konsekuensi lainnya: pola yang sah di tengah candle bisa gugur saat
+      // close, dan seluruh loop diulang dari awal setiap tick. Itu dulu membuat
+      // level/pending/counter hilang sendiri (void). Sejak v2.04 setup seperti
+      // itu dikunci (g_engulfLocks) lalu dibangun ulang dari level yang sama,
+      // jadi akhirnya hanya dua: filled (ACTIVE) atau canceled.
+      // Alert ikut intrabar (arm/fill, lihat blok ALERTS di bawah) supaya
+      // pending bisa dipasang dan fill diketahui selagi candle bergerak; alert
+      // cancel tetap menunggu bar close.
+      const bool notFormingBar = (i < rates_total - 1);
+      const bool evalBar = (notFormingBar || InpAllowFormingBar);
+
       EngulfSignal sig = DetectEngulfing(i, open, high, low, close);
 
-      if(sig.buy || sig.sell)
+      // R2.2: bar yang setupnya sudah diumumkan intrabar tetap dikenali walau
+      // syarat pola tidak lagi terpenuhi (harga berbalik sebelum close). Tanpa
+      // ini replay berikutnya tidak tahu setup itu pernah ada dan seluruh
+      // jejaknya hilang - persis skenario void yang dihapus dari animasi.
+      const int  lockIdx   = (evalBar && InpAllowFormingBar) ? EngulfLockFind(time[i]) : -1;
+      const bool lockedBar = (lockIdx >= 0 && !sig.buy && !sig.sell);
+
+      if(evalBar && (sig.buy || sig.sell || lockedBar))
          stats.nSig++;
 
       // .pine OPPOSITE SIGNAL CANCELLATION
+      // Jalur warisan .pine. Di A = P blok ini tidak pernah terpicu: state
+      // SETUP/ARMED hanya hidup di dalam iterasi bar pola, sedangkan blok ini
+      // dievaluasi sebelum CREATE, jadi state yang terbawa dari bar sebelumnya
+      // selalu NONE. Dibiarkan utuh agar kontrak input & teks alert lama tidak
+      // berubah; lihat catatan legacy di Docs/Indicator_MT5.md.
       bool oppositeToBuy = (state == STATE_BUY_SETUP || state == STATE_BUY_ARMED) && sig.sell;
       bool oppositeToSell = (state == STATE_SELL_SETUP || state == STATE_SELL_ARMED) && sig.buy;
 
@@ -280,185 +448,23 @@ void RecalculateEngulfing(
          flags.cancelledNow = true;
          state = STATE_NONE;
 
-         EngulfDeleteObject(setup.lnE);
-         EngulfDeleteObject(setup.lnS);
-         EngulfDeleteObject(setup.lnT);
-         EngulfDeleteObject(setup.lbE);
-         EngulfDeleteObject(setup.lbS);
-         EngulfDeleteObject(setup.lbT);
-         EngulfDeleteObject(setup.lnBody);
-         EngulfDeleteObject(setup.lbBody);
-
-         setup.lnE = "";
-         setup.lnS = "";
-         setup.lnT = "";
-         setup.lbE = "";
-         setup.lbS = "";
-         setup.lbT = "";
-         setup.lnBody = "";
-         setup.lbBody = "";
-      }
-
-      // .pine BREAK BODY TRIGGER (BUY)
-      if(state == STATE_BUY_SETUP && i > setup.setupBar)
-      {
-         if(high[i] >= setup.pBreak)
-         {
-            EngulfAlertCapture(flags, setup, 1, i);
-            state = STATE_BUY_ARMED;
-            flags.armedNow = true;
-         }
-      }
-
-      // .pine PENDING FILL (BUY)
-      if(state == STATE_BUY_ARMED)
-      {
-         if(high[i] >= setup.pEntry)
-         {
-            EngulfAlertCapture(flags, setup, 1, i);
-            state = STATE_BUY_ACTIVE;
-            setup.entryBar = i;
-            stats.nRun++;
-            stats.nBuyRun++;
-            flags.hitBuy = true;
-
-            EngulfSetLineStyle(setup.lnE, STYLE_SOLID);
-            EngulfSetLineColor(setup.lnE, InpCBuyText);
-            EngulfSetLabelText(setup.lbE, "BUY " + EngulfPriceText(setup.pEntry), InpCBuyText, InpLabelSize);
-         }
-      }
-
-      // .pine BREAK BODY TRIGGER (SELL)
-      if(state == STATE_SELL_SETUP && i > setup.setupBar)
-      {
-         if(low[i] <= setup.pBreak)
-         {
-            EngulfAlertCapture(flags, setup, -1, i);
-            state = STATE_SELL_ARMED;
-            flags.armedNow = true;
-         }
-      }
-
-      // .pine PENDING FILL (SELL)
-      if(state == STATE_SELL_ARMED)
-      {
-         if(low[i] <= setup.pEntry)
-         {
-            EngulfAlertCapture(flags, setup, -1, i);
-            state = STATE_SELL_ACTIVE;
-            setup.entryBar = i;
-            stats.nRun++;
-            stats.nSellRun++;
-            flags.hitSell = true;
-
-            EngulfSetLineStyle(setup.lnE, STYLE_SOLID);
-            EngulfSetLineColor(setup.lnE, InpCSellText);
-            EngulfSetLabelText(setup.lbE, "SELL " + EngulfPriceText(setup.pEntry), InpCSellText, InpLabelSize);
-         }
-      }
-
-      // .pine ACTIVE BUY RESULT (SL checked first)
-      if(state == STATE_BUY_ACTIVE && i > setup.entryBar)
-      {
-         if(low[i] <= setup.pSL)
-         {
-            stats.nLos++;
-            stats.buyLoss++;
-            curSLStreak++;
-            curTPStreak = 0;
-            if(curSLStreak > stats.maxSLStreak)
-               stats.maxSLStreak = curSLStreak;
-
-            EngulfAlertCapture(flags, setup, 1, i);
-            flags.slHitNow = true;
-            flags.resultDir = 1;
-            state = STATE_NONE;
-
-            EngulfSetLabelText(setup.lbE, "BUY SL " + EngulfPriceText(setup.pEntry), InpCSL, InpLabelSize);
-            EngulfSetLabelText(setup.lbS, "SL HIT " + EngulfPriceText(setup.pSL), InpCSL, InpLabelSize);
-         }
-         else if(high[i] >= setup.pTP)
-         {
-            stats.nWin++;
-            stats.buyWins++;
-            curTPStreak++;
-            curSLStreak = 0;
-            if(curTPStreak > stats.maxTPStreak)
-               stats.maxTPStreak = curTPStreak;
-
-            EngulfAlertCapture(flags, setup, 1, i);
-            flags.tpHitNow = true;
-            flags.resultDir = 1;
-            state = STATE_NONE;
-
-            EngulfSetLabelText(setup.lbE, "BUY TP " + EngulfPriceText(setup.pEntry), InpCTP, InpLabelSize);
-            EngulfSetLabelText(setup.lbT, "TP HIT " + EngulfPriceText(setup.pTP), InpCTP, InpLabelSize);
-         }
-      }
-
-      // .pine ACTIVE SELL RESULT (SL checked first)
-      if(state == STATE_SELL_ACTIVE && i > setup.entryBar)
-      {
-         if(high[i] >= setup.pSL)
-         {
-            stats.nLos++;
-            stats.sellLoss++;
-            curSLStreak++;
-            curTPStreak = 0;
-            if(curSLStreak > stats.maxSLStreak)
-               stats.maxSLStreak = curSLStreak;
-
-            EngulfAlertCapture(flags, setup, -1, i);
-            flags.slHitNow = true;
-            flags.resultDir = -1;
-            state = STATE_NONE;
-
-            EngulfSetLabelText(setup.lbE, "SELL SL " + EngulfPriceText(setup.pEntry), InpCSL, InpLabelSize);
-            EngulfSetLabelText(setup.lbS, "SL HIT " + EngulfPriceText(setup.pSL), InpCSL, InpLabelSize);
-         }
-         else if(low[i] <= setup.pTP)
-         {
-            stats.nWin++;
-            stats.sellWins++;
-            curTPStreak++;
-            curSLStreak = 0;
-            if(curTPStreak > stats.maxTPStreak)
-               stats.maxTPStreak = curTPStreak;
-
-            EngulfAlertCapture(flags, setup, -1, i);
-            flags.tpHitNow = true;
-            flags.resultDir = -1;
-            state = STATE_NONE;
-
-            EngulfSetLabelText(setup.lbE, "SELL TP " + EngulfPriceText(setup.pEntry), InpCTP, InpLabelSize);
-            EngulfSetLabelText(setup.lbT, "TP HIT " + EngulfPriceText(setup.pTP), InpCTP, InpLabelSize);
-         }
-      }
-
-      // .pine FREEZE COMPLETED SETUP
-      if(flags.tpHitNow || flags.slHitNow)
-      {
-         int xFinal = i + InpExtendB;
-         EngulfSetLineX2(setup.lnE, xFinal, setup.pEntry, rates_total, time);
-         EngulfSetLineX2(setup.lnS, xFinal, setup.pSL, rates_total, time);
-         EngulfSetLineX2(setup.lnT, xFinal, setup.pTP, rates_total, time);
-         EngulfSetLineX2(setup.lnBody, xFinal, setup.pBreak, rates_total, time);
-         EngulfSetLabelX(setup.lbE, xFinal, setup.pEntry, rates_total, time);
-         EngulfSetLabelX(setup.lbS, xFinal, setup.pSL, rates_total, time);
-         EngulfSetLabelX(setup.lbT, xFinal, setup.pTP, rates_total, time);
-         EngulfSetLabelX(setup.lbBody, xFinal, setup.pBreak, rates_total, time);
-
-         // clear active references; history copies remain
-         setup.lnBody = "";
-         setup.lbBody = "";
+         EngulfClearSetupVisuals(setup);
       }
 
       // =====================================================
       // .pine CREATE NEW SETUP
       // =====================================================
-      if(state == STATE_NONE && (sig.buy || sig.sell))
+      // Blok ini sengaja dievaluasi SEBELUM trigger/fill/cancel (A = P): setup
+      // baru langsung diuji di bar yang sama. Bila posisi lama masih ACTIVE,
+      // state != NONE sehingga pola di bar ini diabaikan - hasil TP/SL baru
+      // diproses setelah blok ini, jadi satu bar tidak pernah memuat dua event
+      // dan snapshot alert TP/SL tidak bisa tertimpa snapshot fill.
+      if(evalBar && state == STATE_NONE && (sig.buy || sig.sell || lockedBar))
       {
-         int dir = sig.buy ? 1 : -1;
+         // R2.2/R2.3: arah dan level selalu dari kunci. Kunci menang atas pola,
+         // termasuk saat close berbalik jauh sampai pola arah berlawanan sah di
+         // bar yang sama: setup yang sudah diumumkan tidak boleh diganti diam-diam.
+         int dir = lockIdx >= 0 ? g_engulfLocks[lockIdx].dir : (sig.buy ? 1 : -1);
 
          setup.lnE = "";
          setup.lnS = "";
@@ -479,22 +485,39 @@ void RecalculateEngulfing(
          setup.setupBar = i;
          setup.entryBar = -1;
 
-         double atr = EngulfAtrAt(i, high, low, close, 14);
-         double bufEntry = InpBufEntryX * atr;
-         double bufSL = InpBufSLX * atr;
-         double bufBodyBreak = InpBodyBreakTol * atr;
-
-         double o1 = open[i - 1];
-         double c1 = close[i - 1];
-         double wickTop = high[i - 1];
-         double wickBot = low[i - 1];
-
          double breakCalc;
          double entryCalc;
          double slCalc;
          double tpCalc;
-         EngulfComputeLevels(dir, o1, c1, wickTop, wickBot, bufEntry, bufSL, bufBodyBreak,
-                             breakCalc, entryCalc, slCalc, tpCalc);
+
+         // R2.2: level dipakai apa adanya dari kunci. Menghitung ulang bisa
+         // menggeser harga (ATR bar S memakai range final dan guard di
+         // EngulfComputeLevels bisa memotong level), sedangkan user sudah
+         // melihat angka yang lama saat alert BREAK BODY terbit. Saat pola sudah
+         // gagal, hitungan ulang juga tidak ada artinya lagi: pergerakan harga
+         // setelah itu bukan lagi gambaran setup yang diumumkan.
+         if(lockIdx >= 0)
+         {
+            breakCalc = g_engulfLocks[lockIdx].pBreak;
+            entryCalc = g_engulfLocks[lockIdx].pEntry;
+            slCalc    = g_engulfLocks[lockIdx].pSL;
+            tpCalc    = g_engulfLocks[lockIdx].pTP;
+         }
+         else
+         {
+            double atr = EngulfAtrAt(i, high, low, close, 14);
+            double bufEntry = InpBufEntryX * atr;
+            double bufSL = InpBufSLX * atr;
+            double bufBodyBreak = InpBodyBreakTol * atr;
+
+            double o1 = open[i - 1];
+            double c1 = close[i - 1];
+            double wickTop = high[i - 1];
+            double wickBot = low[i - 1];
+
+            EngulfComputeLevels(dir, o1, c1, wickTop, wickBot, bufEntry, bufSL, bufBodyBreak,
+                                breakCalc, entryCalc, slCalc, tpCalc);
+         }
 
          double mintick = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
          if(mintick <= 0.0)
@@ -598,8 +621,246 @@ void RecalculateEngulfing(
                   RemoveEngulfName(histLabels, 0);
                }
             }
+
+            // R2.1: setup yang lahir di candle berjalan langsung dikunci, jadi
+            // replay tick berikutnya (dan replay saat bar itu close) bisa
+            // membangunnya ulang walau pola sudah tidak lolos DetectEngulfing().
+            if(i == rates_total - 1 && InpAllowFormingBar)
+               EngulfLockStore(time[i], dir, setup.pBreak, setup.pEntry, setup.pSL, setup.pTP);
+
+            // R2.3: fill yang sudah terjadi tetap sah. Setup dilanjutkan sebagai
+            // ACTIVE supaya TP/SL di bar berikutnya tetap dipantau; garis dan
+            // label entry disamakan dengan blok fill normal.
+            if(lockIdx >= 0 && g_engulfLocks[lockIdx].filled)
+            {
+               state = dir == 1 ? STATE_BUY_ACTIVE : STATE_SELL_ACTIVE;
+               setup.entryBar = i;
+
+               stats.nRun++;
+               if(dir == 1)
+                  stats.nBuyRun++;
+               else
+                  stats.nSellRun++;
+
+               EngulfSetLineStyle(setup.lnE, STYLE_SOLID);
+               EngulfSetLineColor(setup.lnE, dir == 1 ? InpCBuyText : InpCSellText);
+               EngulfSetLabelText(setup.lbE,
+                                  (dir == 1 ? "BUY " : "SELL ") + EngulfPriceText(setup.pEntry),
+                                  dir == 1 ? InpCBuyText : InpCSellText, InpLabelSize);
+
+               // D8 = A: kontrak buffer EA sama seperti fill intrabar.
+               if(dir == 1)
+                  BuyBuffer[i] = setup.pEntry;
+               else
+                  SellBuffer[i] = setup.pEntry;
+
+               SignalSLBuffer[i] = setup.pSL;
+               SignalTPBuffer[i] = setup.pTP;
+            }
          }
       }
+
+      // .pine BREAK BODY TRIGGER (BUY) - hanya di bar pola (A = P)
+      if(state == STATE_BUY_SETUP && i == setup.setupBar)
+      {
+         if(high[i] >= setup.pBreak)
+         {
+            EngulfAlertCapture(flags, setup, 1, i);
+            state = STATE_BUY_ARMED;
+            flags.armedNow = true;
+         }
+      }
+
+      // .pine PENDING FILL (BUY) - bar pola yang sama
+      if(state == STATE_BUY_ARMED && i == setup.setupBar)
+      {
+         if(high[i] >= setup.pEntry)
+         {
+            EngulfAlertCapture(flags, setup, 1, i);
+            state = STATE_BUY_ACTIVE;
+            setup.entryBar = i;
+            stats.nRun++;
+            stats.nBuyRun++;
+            flags.hitBuy = true;
+
+            EngulfSetLineStyle(setup.lnE, STYLE_SOLID);
+            EngulfSetLineColor(setup.lnE, InpCBuyText);
+            EngulfSetLabelText(setup.lbE, "BUY " + EngulfPriceText(setup.pEntry), InpCBuyText, InpLabelSize);
+         }
+      }
+
+      // .pine BREAK BODY TRIGGER (SELL) - hanya di bar pola (A = P)
+      if(state == STATE_SELL_SETUP && i == setup.setupBar)
+      {
+         if(low[i] <= setup.pBreak)
+         {
+            EngulfAlertCapture(flags, setup, -1, i);
+            state = STATE_SELL_ARMED;
+            flags.armedNow = true;
+         }
+      }
+
+      // .pine PENDING FILL (SELL) - bar pola yang sama
+      if(state == STATE_SELL_ARMED && i == setup.setupBar)
+      {
+         if(low[i] <= setup.pEntry)
+         {
+            EngulfAlertCapture(flags, setup, -1, i);
+            state = STATE_SELL_ACTIVE;
+            setup.entryBar = i;
+            stats.nRun++;
+            stats.nSellRun++;
+            flags.hitSell = true;
+
+            EngulfSetLineStyle(setup.lnE, STYLE_SOLID);
+            EngulfSetLineColor(setup.lnE, InpCSellText);
+            EngulfSetLabelText(setup.lbE, "SELL " + EngulfPriceText(setup.pEntry), InpCSellText, InpLabelSize);
+         }
+      }
+
+      // R2.3: pending bar ini sudah terisi -> kunci ikut ditandai, supaya replay
+      // berikutnya membangun setup sebagai ACTIVE (bukan ARMED lagi).
+      if(flags.hitBuy || flags.hitSell)
+         EngulfLockMarkFilled(time[i]);
+
+      // .pine CANCEL AT SETUP BAR CLOSE (BUY): armed, tapi close belum melewati ENTRY
+      // Blok ini tetap hanya dievaluasi pada bar yang sudah close (notFormingBar).
+      // Dengan InpAllowFormingBar, close[i] pada candle berjalan hanyalah harga
+      // terakhir, jadi memakainya di sini akan langsung menghapus pending yang
+      // baru saja dipasang (pending hanya akan sempat tampil pada tick di mana
+      // harga sudah melewati ENTRY - dan saat itu state-nya sudah ACTIVE).
+      if(notFormingBar && state == STATE_BUY_ARMED && i == setup.setupBar && close[i] <= setup.pEntry)
+      {
+         EngulfAlertCapture(flags, setup, 1, i);
+         flags.cancelledDir = 1;
+         flags.closeCancelNow = true;
+         flags.evClose = close[i];
+         stats.nCancelled++;
+         state = STATE_NONE;
+
+         EngulfClearSetupVisuals(setup);
+      }
+
+      // .pine CANCEL AT SETUP BAR CLOSE (SELL) - juga hanya pada bar yang sudah close
+      if(notFormingBar && state == STATE_SELL_ARMED && i == setup.setupBar && close[i] >= setup.pEntry)
+      {
+         EngulfAlertCapture(flags, setup, -1, i);
+         flags.cancelledDir = -1;
+         flags.closeCancelNow = true;
+         flags.evClose = close[i];
+         stats.nCancelled++;
+         state = STATE_NONE;
+
+         EngulfClearSetupVisuals(setup);
+      }
+
+      // Setup yang tidak menyentuh BREAK BODY di bar pola (hanya mungkin bila
+      // InpBodyBreakTol > 0) hangus tanpa order: tidak ada fill, tidak ada alert.
+      // Sama seperti cancel-at-close, keputusan "tidak pernah armed" baru sah
+      // setelah bar pola close - pada candle berjalan high/low belum final,
+      // sehingga pending intrabar tidak boleh langsung dibuang di sini.
+      if(notFormingBar && (state == STATE_BUY_SETUP || state == STATE_SELL_SETUP) && i == setup.setupBar)
+      {
+         state = STATE_NONE;
+         EngulfClearSetupVisuals(setup);
+      }
+
+      // .pine ACTIVE BUY RESULT (SL checked first)
+      if(state == STATE_BUY_ACTIVE && i > setup.entryBar)
+      {
+         if(low[i] <= setup.pSL)
+         {
+            stats.nLos++;
+            stats.buyLoss++;
+            curSLStreak++;
+            curTPStreak = 0;
+            if(curSLStreak > stats.maxSLStreak)
+               stats.maxSLStreak = curSLStreak;
+
+            EngulfAlertCapture(flags, setup, 1, i);
+            flags.slHitNow = true;
+            flags.resultDir = 1;
+            state = STATE_NONE;
+
+            EngulfSetLabelText(setup.lbE, "BUY SL " + EngulfPriceText(setup.pEntry), InpCSL, InpLabelSize);
+            EngulfSetLabelText(setup.lbS, "SL HIT " + EngulfPriceText(setup.pSL), InpCSL, InpLabelSize);
+         }
+         else if(high[i] >= setup.pTP)
+         {
+            stats.nWin++;
+            stats.buyWins++;
+            curTPStreak++;
+            curSLStreak = 0;
+            if(curTPStreak > stats.maxTPStreak)
+               stats.maxTPStreak = curTPStreak;
+
+            EngulfAlertCapture(flags, setup, 1, i);
+            flags.tpHitNow = true;
+            flags.resultDir = 1;
+            state = STATE_NONE;
+
+            EngulfSetLabelText(setup.lbE, "BUY TP " + EngulfPriceText(setup.pEntry), InpCTP, InpLabelSize);
+            EngulfSetLabelText(setup.lbT, "TP HIT " + EngulfPriceText(setup.pTP), InpCTP, InpLabelSize);
+         }
+      }
+
+      // .pine ACTIVE SELL RESULT (SL checked first)
+      if(state == STATE_SELL_ACTIVE && i > setup.entryBar)
+      {
+         if(high[i] >= setup.pSL)
+         {
+            stats.nLos++;
+            stats.sellLoss++;
+            curSLStreak++;
+            curTPStreak = 0;
+            if(curSLStreak > stats.maxSLStreak)
+               stats.maxSLStreak = curSLStreak;
+
+            EngulfAlertCapture(flags, setup, -1, i);
+            flags.slHitNow = true;
+            flags.resultDir = -1;
+            state = STATE_NONE;
+
+            EngulfSetLabelText(setup.lbE, "SELL SL " + EngulfPriceText(setup.pEntry), InpCSL, InpLabelSize);
+            EngulfSetLabelText(setup.lbS, "SL HIT " + EngulfPriceText(setup.pSL), InpCSL, InpLabelSize);
+         }
+         else if(low[i] <= setup.pTP)
+         {
+            stats.nWin++;
+            stats.sellWins++;
+            curTPStreak++;
+            curSLStreak = 0;
+            if(curTPStreak > stats.maxTPStreak)
+               stats.maxTPStreak = curTPStreak;
+
+            EngulfAlertCapture(flags, setup, -1, i);
+            flags.tpHitNow = true;
+            flags.resultDir = -1;
+            state = STATE_NONE;
+
+            EngulfSetLabelText(setup.lbE, "SELL TP " + EngulfPriceText(setup.pEntry), InpCTP, InpLabelSize);
+            EngulfSetLabelText(setup.lbT, "TP HIT " + EngulfPriceText(setup.pTP), InpCTP, InpLabelSize);
+         }
+      }
+
+      // .pine FREEZE COMPLETED SETUP
+      if(flags.tpHitNow || flags.slHitNow)
+      {
+         int xFinal = i + InpExtendB;
+         EngulfSetLineX2(setup.lnE, xFinal, setup.pEntry, rates_total, time);
+         EngulfSetLineX2(setup.lnS, xFinal, setup.pSL, rates_total, time);
+         EngulfSetLineX2(setup.lnT, xFinal, setup.pTP, rates_total, time);
+         EngulfSetLineX2(setup.lnBody, xFinal, setup.pBreak, rates_total, time);
+         EngulfSetLabelX(setup.lbE, xFinal, setup.pEntry, rates_total, time);
+         EngulfSetLabelX(setup.lbS, xFinal, setup.pSL, rates_total, time);
+         EngulfSetLabelX(setup.lbT, xFinal, setup.pTP, rates_total, time);
+         EngulfSetLabelX(setup.lbBody, xFinal, setup.pBreak, rates_total, time);
+
+         // clear active references; history copies remain
+         setup.lnBody = "";
+         setup.lbBody = "";
+      }
+
 
       // =====================================================
       // SIGNAL BUFFERS (EA contract) + ALERTS
@@ -615,7 +876,21 @@ void RecalculateEngulfing(
          SignalTPBuffer[i] = setup.pTP;
       }
 
-      if(paint && i == rates_total - 1)
+      // Alerts: arm / fill / cancel memakai bar yang sudah close
+      // (rates_total - 2) supaya OHLC-nya final; TP/SL tetap boleh intrabar.
+      //
+      // InpAllowFormingBar = true juga melepas gate arm/fill agar alert
+      // "pasang pending" (BREAK BODY) dan "order terisi" (ENTRY FILLED) terbit
+      // selagi candle pola masih berjalan - itu inti mode intrabar. Dedupe
+      // EngulfAlertOnce memakai waktu bar event, jadi tiap event tetap sekali
+      // per bar walau bar itu dievaluasi puluhan kali. Konsekuensinya: pola
+      // yang gugur saat close sudah terlanjur diumumkan (alert tidak bisa
+      // ditarik), sementara garis/panel/buffer ikut hilang. Alert cancel tetap
+      // hanya dari bar close karena cancel memang keputusan close.
+      const bool closedBar = (i == rates_total - 2);
+      const bool alertArmFillBar = (closedBar || (InpAllowFormingBar && i == rates_total - 1));
+
+      if(paint && (i == rates_total - 1 || closedBar))
       {
          // Every field below comes from the snapshot taken when the event
          // fired, so a setup created later in this same bar cannot rewrite the
@@ -626,8 +901,9 @@ void RecalculateEngulfing(
          string side    = flags.evDir == 1 ? "BUY" : "SELL";
          string rr      = EngulfAlertRRText(flags.evEntry, flags.evSL, flags.evTP);
 
-         if(flags.armedNow && EngulfAlertOnce(EngulfAlertKeyArmed,
-                                               EngulfAlertKey("ARMED", flags.evDir, setupAt, barAt)))
+         if(flags.armedNow && alertArmFillBar && EngulfAlertOnce(EngulfAlertKeyArmed,
+                                               EngulfAlertKey("ARMED", flags.evDir, setupAt, barAt),
+                                               "ARMED", time[flags.evEventBar]))
          {
             Alert(head + " | BREAK BODY " + side + " @ " + EngulfPriceText(flags.evBreak) +
                   " | pending entry " + EngulfPriceText(flags.evEntry) +
@@ -637,8 +913,9 @@ void RecalculateEngulfing(
                   " | setup " + setupAt +
                   " | bar " + barAt);
          }
-         if((flags.hitBuy || flags.hitSell) &&
-            EngulfAlertOnce(EngulfAlertKeyEntry, EngulfAlertKey("ENTRY", flags.evDir, setupAt, barAt)))
+         if((flags.hitBuy || flags.hitSell) && alertArmFillBar &&
+            EngulfAlertOnce(EngulfAlertKeyEntry, EngulfAlertKey("ENTRY", flags.evDir, setupAt, barAt),
+                            "ENTRY", time[flags.evEventBar]))
          {
             Alert(head + " | ENTRY " + side + " FILLED @ " + EngulfPriceText(flags.evEntry) +
                   " | SL " + EngulfPriceText(flags.evSL) +
@@ -649,7 +926,8 @@ void RecalculateEngulfing(
                   " | fill bar " + barAt);
          }
          if(flags.tpHitNow && EngulfAlertOnce(EngulfAlertKeyTP,
-                                               EngulfAlertKey("TP", flags.evDir, setupAt, barAt)))
+                                               EngulfAlertKey("TP", flags.evDir, setupAt, barAt),
+                                               "TP", time[flags.evEventBar]))
          {
             Alert(head + " | TP HIT " + side + " @ " + EngulfPriceText(flags.evTP) +
                   " | entry " + EngulfPriceText(flags.evEntry) +
@@ -659,7 +937,8 @@ void RecalculateEngulfing(
                   " | result bar " + barAt);
          }
          if(flags.slHitNow && EngulfAlertOnce(EngulfAlertKeySL,
-                                               EngulfAlertKey("SL", flags.evDir, setupAt, barAt)))
+                                               EngulfAlertKey("SL", flags.evDir, setupAt, barAt),
+                                               "SL", time[flags.evEventBar]))
          {
             Alert(head + " | SL HIT " + side + " @ " + EngulfPriceText(flags.evSL) +
                   " | entry " + EngulfPriceText(flags.evEntry) +
@@ -668,8 +947,9 @@ void RecalculateEngulfing(
                   " | setup " + setupAt +
                   " | result bar " + barAt);
          }
-         if(flags.cancelledNow && EngulfAlertOnce(EngulfAlertKeyCancel,
-                                                   EngulfAlertKey("CANCEL", flags.evDir, setupAt, barAt)))
+         if(flags.cancelledNow && closedBar && EngulfAlertOnce(EngulfAlertKeyCancel,
+                                                   EngulfAlertKey("CANCEL", flags.evDir, setupAt, barAt),
+                                                   "CANCEL", time[flags.evEventBar]))
          {
             Alert(head + " | CANCELLED " + side + " (opposite signal)" +
                   " | pending entry " + EngulfPriceText(flags.evEntry) +
@@ -677,6 +957,19 @@ void RecalculateEngulfing(
                   " | TP " + EngulfPriceText(flags.evTP) +
                   " | setup " + setupAt +
                   " | cancel bar " + barAt);
+         }
+         if(flags.closeCancelNow && closedBar &&
+            EngulfAlertOnce(EngulfAlertKeyCancelClose,
+                            EngulfAlertKey("CANCELED", flags.evDir, setupAt, barAt),
+                            "CANCELED", time[flags.evEventBar]))
+         {
+            Alert(head + " | ENTRY " + side + " CANCELED @ " + EngulfPriceText(flags.evEntry) +
+                  " | close bar " + EngulfPriceText(flags.evClose) +
+                  " | SL " + EngulfPriceText(flags.evSL) +
+                  " | TP " + EngulfPriceText(flags.evTP) +
+                  " | RR " + rr +
+                  " | setup " + setupAt +
+                  " | bar " + barAt);
          }
       }
    }

@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Draft requirement v2.04 - kunci setup intrabar (tanpa VOID)</title>
+<style>
+  :root {
+    --bg:     #1e1e1e;
+    --card:   #232323;
+    --line:   #3a3a3a;
+    --text:   #cccccc;
+    --dim:    #8a8a8a;
+    --buy:    #26a69a;
+    --sell:   #ef5350;
+    --warn:   #ffeb3b;
+  }
+
+  body {
+    margin: 0;
+    padding: 32px 40px 64px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  h1 { font-size: 22px; margin: 0 0 4px; color: #fff; font-weight: 600; }
+  h2 {
+    font-size: 16px; margin: 34px 0 10px; color: #fff; font-weight: 600;
+    border-left: 3px solid var(--warn); padding-left: 9px;
+  }
+  p.sub { color: var(--dim); margin: 0 0 22px; max-width: 980px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 14px 16px;
+  }
+
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 13px; }
+  th, td { border: 1px solid var(--line); padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #2b2b2b; color: #fff; font-weight: 600; }
+
+  code {
+    background: #2b2b2b; border: 1px solid var(--line); border-radius: 3px;
+    padding: 1px 4px; font-family: Consolas, "Courier New", monospace; font-size: 12px;
+  }
+
+  pre {
+    background: #1b1b1b; border: 1px solid var(--line); border-radius: 6px;
+    padding: 12px 14px; overflow-x: auto;
+    font-family: Consolas, "Courier New", monospace; font-size: 12px; line-height: 1.5;
+    color: #d6d6d6;
+  }
+
+  .buy  { color: var(--buy); }
+  .sell { color: var(--sell); }
+  .warn { color: var(--warn); }
+  .dim  { color: var(--dim); }
+
+  .note {
+    border-left: 3px solid var(--warn);
+    background: rgba(255, 235, 59, 0.06);
+    padding: 10px 12px;
+    margin-top: 12px;
+    font-size: 13px;
+  }
+
+  a { color: var(--warn); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .tag {
+    display: inline-block; font-size: 11px; line-height: 16px;
+    padding: 0 7px; border-radius: 9px;
+    border: 1px solid var(--line); color: var(--dim);
+    vertical-align: middle; font-weight: 400;
+  }
+  .tag.draft { border-color: var(--warn); color: var(--warn); }
+  .tag.done  { border-color: var(--buy);  color: var(--buy);  }
+
+  td.id { width: 52px; color: #fff; font-weight: 600; white-space: nowrap; }
+  td.decide { color: var(--dim); text-align: center; }
+  ul.opts { margin: 0; padding-left: 16px; }
+  ul.opts li { margin: 2px 0; }
+  table.meta td:first-child { width: 175px; color: var(--dim); white-space: nowrap; }
+  ol.req { margin: 6px 0 0; padding-left: 20px; }
+  ol.req li { margin: 6px 0; }
+
+  footer { margin-top: 40px; color: var(--dim); font-size: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Draft requirement v2.04 &mdash; kunci setup intrabar (tanpa VOID)</h1>
+<p class="sub">
+  Engulfing Breakout &mdash; MT5. Requirement <b>R2</b>: setup yang sudah diumumkan di dalam candle S
+  (pending atau filled) <b>tidak boleh hilang</b> saat candle itu close dengan pola yang gagal
+  terkonfirmasi. Draft ini menutup satu-satunya jalur &ldquo;void&rdquo; yang masih tersisa di engine.
+</p>
+
+<div class="card">
+  <table class="meta">
+    <tbody>
+      <tr><td>Status</td><td><span class="tag done">implemented</span> v2.04 &mdash;
+          keputusan <b>D6&ndash;D10 = A</b> (bagian 3). Lanjutan dari
+          <a href="entry-requirement-final.html">entry-requirement-final.html</a>
+          (R1.1&ndash;R1.7, D1&ndash;D5 &mdash; sudah diimplementasi di v2.02/v2.03).</td></tr>
+      <tr><td>Mengubah</td><td>Nasib setup intrabar ketika bar pola close dengan <code>close(S)</code>
+          tidak lagi memenuhi syarat engulf. Build v2.03: setup <b>dihapus</b> oleh replay.
+          Sejak v2.04: setup <b>dikunci</b>, lalu diselesaikan lewat aturan R1 (filled tetap filled,
+          armed &rarr; cancel saat close).</td></tr>
+      <tr><td>Ruang lingkup</td><td>Hanya jalur intrabar (<code>InpAllowFormingBar = true</code>):
+          apa yang terjadi bila sinyal yang sudah terbit di dalam candle S gugur saat S close</td></tr>
+      <tr><td>Di luar lingkup</td><td>Rumus level (<code>EngulfComputeLevels</code>), teks &amp;
+          gerbang alert, aturan cancel R1.3, kontrak buffer EA (kecuali keputusan D8), panel layout</td></tr>
+      <tr><td>File yang berubah</td><td><code>Includes/HoekaGataIndicator_Core.mqh</code> (tabel lock +
+          blok CREATE + blok hasil). <code>Config.mqh</code> tidak berubah (D10 = A), EA tidak berubah
+          (D8 = A), <code>Drawing.mqh</code> / panel tidak berubah.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>1. Kenapa draft ini ada</h2>
+<div class="card">
+  <p style="margin:0">
+    <code>RecalculateEngulfing()</code> me-replay seluruh histori pada setiap tick dan tidak menyimpan
+    state di antara tick. Pola hanya sah bila <code>DetectEngulfing()</code> lolos pada bar itu, dan
+    syaratnya memakai harga <b>close</b> (<code>close &gt; high(S&minus;1)</code> untuk BUY). Di dalam
+    candle yang masih berjalan <code>close</code> adalah harga terakhir, sehingga:
+  </p>
+  <ul style="margin:8px 0 0; padding-left:20px">
+    <li><b>tick 1..n:</b> harga melewati <code>high(S&minus;1)</code> &rarr; pola dianggap sah &rarr;
+        label <code>PENDING</code> tampil, alert <code>BREAK BODY</code> terbit, ENTRY tersentuh &rarr;
+        alert <code>ENTRY FILLED</code> (EA shift 0 sudah membuka posisi);</li>
+    <li><b>close S:</b> harga berbalik dan <code>close(S) &le; high(S&minus;1)</code> &rarr; syarat engulf
+        gagal &rarr; blok CREATE tidak berjalan &rarr; level, garis, label, panel, dan buffer EA
+        <b>hilang</b>, karena replay berikutnya tidak pernah tahu setup itu pernah ada.</li>
+  </ul>
+  <div class="note">
+    Inilah yang di dokumen lama disebut &ldquo;pola gugur saat close&rdquo; (skenario VOID). Setelah
+    skenario C dihapus dari <a href="entry-animation.html">entry-animation.html</a>, animasi tidak lagi
+    menampilkan kejadian ini &mdash; sementara engine masih melakukannya dan
+    <a href="../../Docs/Indicator_MT5.md">Docs/Indicator_MT5.md</a> masih mencantumkannya sebagai
+    batasan. Draft ini yang menutup selisih tersebut.
+  </div>
+</div>
+<h2>2. Aturan final R2</h2>
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:56px">ID</th>
+        <th>Aturan</th>
+        <th style="width:300px">Kondisi di kode</th>
+        <th>Aksi / alert</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="id">R2.1</td>
+        <td><b>Kunci lahir bersama setup intrabar.</b> Begitu setup dibuat pada bar terakhir yang masih
+            berjalan, levelnya dicatat supaya replay berikutnya mengenali bar itu</td>
+        <td>blok CREATE berjalan dengan <code>i == rates_total - 1</code> dan
+            <code>InpAllowFormingBar = true</code>; setelah <code>state = dir</code> simpan
+            <code>{time[i], dir, pBreak, pEntry, pSL, pTP, filled = false}</code></td>
+        <td>tidak ada perubahan tampilan; ini hanya pencatatan</td>
+      </tr>
+      <tr>
+        <td class="id">R2.2</td>
+        <td><b>Pola gagal &rarr; setup dipulihkan dari kunci</b>, bukan dibuang</td>
+        <td>di bar <code>i</code> dengan <code>time[i] == lock.barTime</code> dan
+            <code>DetectEngulfing()</code> tidak lagi memberi <code>buy</code>/<code>sell</code></td>
+        <td>blok CREATE tetap jalan memakai level dari kunci (tanpa menghitung ulang), jadi garis,
+            label, panel, dan buffer tetap ada sampai setup selesai</td>
+      </tr>
+      <tr>
+        <td class="id">R2.3</td>
+        <td><b>Fill yang sudah terjadi tetap sah</b> walau close S gagal mengonfirmasi pola</td>
+        <td><code>lock.filled = true</code> (ENTRY pernah tersentuh di bar itu)</td>
+        <td>state langsung <code>&plusmn;3</code>, <code>setup.entryBar = setupBar</code>,
+            <code>stats.nRun++</code>; TP/SL dievaluasi mulai bar berikutnya persis seperti R1.
+            Tidak ada fill kedua, tidak ada alert baru</td>
+      </tr>
+      <tr>
+        <td class="id">R2.4</td>
+        <td><b>Armed tanpa fill: cancel tetap milik close</b> (R1.3 tidak berubah)</td>
+        <td><code>lock.filled = false</code> dan <code>close(S)</code> belum melewati ENTRY</td>
+        <td>state &rarr; NONE, level &amp; garis dibersihkan, alert
+            <code>ENTRY … CANCELED</code> terbit saat close. Ini satu-satunya &ldquo;kegagalan&rdquo;
+            yang diumumkan</td>
+      </tr>
+      <tr>
+        <td class="id">R2.5</td>
+        <td><b>Tidak ada cabang ketiga</b> (pending menggantung)</td>
+        <td>armed dan <code>close(S)</code> sudah melewati ENTRY</td>
+        <td>mustahil: <code>close &gt; ENTRY</code> berarti <code>high(S) &ge; ENTRY</code>, jadi sudah
+            terisi di bar S (R2.3). Setiap kunci berakhir <b>filled</b> atau <b>canceled</b> &mdash;
+            sama seperti klaim R1.5 untuk setup normal</td>
+      </tr>
+      <tr>
+        <td class="id">R2.6</td>
+        <td><b>Counter tidak boleh turun saat close</b></td>
+        <td>setup hasil pemulihan (R2.2), baik filled maupun armed</td>
+        <td><code>stats.nSig++</code> (dan <code>nRun++</code> bila filled) dihitung sekali per replay,
+            persis seperti setup normal, sehingga angka <code>Signals</code>/<code>Runs</code>/
+            <code>Cancel</code> di panel tidak berubah hanya karena candle close</td>
+      </tr>
+      <tr>
+        <td class="id">R2.7</td>
+        <td><b>Masa hidup kunci</b></td>
+        <td>kunci <b>tidak</b> dihapus saat setup selesai (replay berikutnya masih membutuhkannya untuk
+            merekonstruksi histori); tabel tumbuh mengikuti jumlah bar yang pernah punya setup intrabar,
+            tanpa batas dan tanpa pembuangan entri</td>
+        <td>tidak ada kebocoran memori yang berarti (<code>EngulfLock</code> hanya 6 angka + waktu, satu
+            entri per bar yang punya setup) dan histori tetap deterministik; pencarian memakai binary
+            search karena tabel urut menurut waktu bar</td>
+      </tr>
+      <tr>
+        <td class="id">R2.8</td>
+        <td><b>Visual tidak berubah gaya</b></td>
+        <td>setup hasil pemulihan</td>
+        <td>garis/label yang sudah digambar di dalam candle S tetap; saat TP/SL kena, aturan FREEZE
+            berjalan seperti biasa</td>
+      </tr>
+      <tr>
+        <td class="id">R2.9</td>
+        <td><b>Level beku</b></td>
+        <td>selama kunci untuk bar itu ada, BREAK BODY / ENTRY / SL / TP tidak dihitung ulang</td>
+        <td>angka yang tampil setelah close = angka yang diumumkan alert. <code>EngulfAtrAt(i)</code>
+            ikut memakai bar S, jadi ATR berubah dari range sementara ke range final saat candle close;
+            tanpa aturan ini entry/SL/TP bisa bergeser - dan fill yang sudah terjadi bisa batal -
+            hanya karena candle-nya tertutup</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="note">
+    R2 hanya aktif bila <code>InpAllowFormingBar = true</code> (lihat D10). Dengan default
+    <code>false</code> tidak ada setup intrabar, jadi tidak ada yang perlu dikunci dan perilaku v2.03
+    tidak berubah sama sekali.
+  </div>
+</div>
+
+<h2>3. Keputusan desain (D6&ndash;D10)</h2>
+<div class="card">
+  <p class="dim" style="margin:0">Kelima keputusan sudah ditetapkan: <b>A</b> untuk semuanya, dan itulah
+     yang diimplementasi di v2.04.</p>
+  <table>
+    <thead>
+      <tr><th style="width:44px">ID</th><th>Pertanyaan</th><th>Opsi</th>
+          <th style="width:250px">Rekomendasi</th><th style="width:86px">Keputusan</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="id">D6</td>
+        <td>Setup yang baru <b>armed</b> (belum tersentuh ENTRY) lalu close S gagal mengonfirmasi pola:
+            diapain?</td>
+        <td><ul class="opts">
+          <li><b>A.</b> cancel saat close, alert <code>CANCELED</code> (R2.4)</li>
+          <li><b>B.</b> tetap pending sampai ada bar yang menyentuh ENTRY (butuh <code>armBar</code>,
+              melanggar A = P, EA bisa entry di bar tanpa pola)</li>
+          <li><b>C.</b> tetap pending sampai TP/SL &mdash; tidak masuk akal untuk order yang belum terisi</li>
+        </ul></td>
+        <td><b>A</b> &mdash; konsisten dengan R1.3 dan A = P: satu-satunya hal yang diputuskan saat close
+            adalah cancel</td>
+        <td class="decide"><b>A</b></td>
+      </tr>
+      <tr>
+        <td class="id">D7</td>
+        <td>Setup yang sudah <b>filled</b> lalu close S gagal mengonfirmasi pola: diapain?</td>
+        <td><ul class="opts">
+          <li><b>A.</b> pertahankan ACTIVE, level &amp; buffer hidup sampai TP/SL (R2.3)</li>
+          <li><b>B.</b> buang juga &mdash; alert <code>FILLED</code> terbit tapi chart bersih
+              (perilaku sekarang, = VOID)</li>
+        </ul></td>
+        <td><b>A</b> &mdash; B meninggalkan posisi EA tanpa level acuan di chart; itulah alasan draft ini
+            dibuat</td>
+        <td class="decide"><b>A</b></td>
+      </tr>
+      <tr>
+        <td class="id">D8</td>
+        <td>Setup terkunci (pola gagal) masih mengisi buffer EA?</td>
+        <td><ul class="opts">
+          <li><b>A.</b> ya, buffer tetap diisi &mdash; EA berperilaku sama dengan yang dilihat user
+              (shift 0 sudah entry; shift 1 entry di open bar berikutnya)</li>
+          <li><b>B.</b> tidak, buffer dikosongkan &mdash; EA hanya trading pola yang confirmed, indikator
+              tetap menampilkan level sebagai riwayat</li>
+        </ul></td>
+        <td><b>A</b> untuk konsistensi indikator&ndash;EA; pilih <b>B</b> bila prioritasnya
+            &ldquo;EA tidak boleh entry di pola yang gagal close&rdquo;</td>
+        <td class="decide"><b>A</b></td>
+      </tr>
+      <tr>
+        <td class="id">D9</td>
+        <td>Kunci disimpan di mana?</td>
+        <td><ul class="opts">
+          <li><b>A.</b> variabel global indikator (hilang saat re-attach / ganti TF)</li>
+          <li><b>B.</b> <code>GlobalVariable</code> terminal (bertahan, tapi 6 double per setup + pruning
+              manual)</li>
+        </ul></td>
+        <td><b>A</b> &mdash; cukup untuk satu candle; re-attach di tengah candle S jatuh kembali ke
+            penilaian close (didokumentasikan)</td>
+        <td class="decide"><b>A</b></td>
+      </tr>
+      <tr>
+        <td class="id">D10</td>
+        <td>Input terpisah atau ikut <code>InpAllowFormingBar</code>?</td>
+        <td><ul class="opts">
+          <li><b>A.</b> otomatis aktif saat <code>InpAllowFormingBar = true</code></li>
+          <li><b>B.</b> input baru <code>InpLockFormingSetup</code> (bisa membandingkan dua perilaku)</li>
+        </ul></td>
+        <td><b>A</b> &mdash; tanpa kunci, mode intrabar selalu bisa menghasilkan void; tidak ada alasan
+            mempertahankannya sebagai opsi</td>
+        <td class="decide"><b>A</b></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>4. Perubahan kode minimum</h2>
+<div class="card">
+  <p class="dim" style="margin:0 0 8px">
+    Sudah diterapkan di <code>HoekaGataIndicator_Core.mqh</code> (v2.04). Nomor baris di bawah mengacu
+    ke build v2.03 sebelum perubahan. Semua tambahan hanya berjalan bila
+    <code>InpAllowFormingBar = true</code>, jadi build default tidak berubah perilakunya.
+  </p>
+  <ol class="req">
+    <li><b>Tabel kunci + helper</b>, di atas <code>RecalculateEngulfing()</code> (setelah
+        <code>EngulfComputeLevels</code>): <code>struct EngulfLock</code>, <code>EngulfLockFind()</code>
+        (binary search), <code>EngulfLockStore()</code>, <code>EngulfLockMarkFilled()</code>. Menyimpan
+        level setup yang lahir di candle berjalan, supaya replay berikutnya tidak perlu mengenali pola
+        lagi.</li>
+    <li><b>Deteksi (baris 324&ndash;327).</b> Cari kunci untuk <code>time[i]</code>; bila pola sudah
+        tidak lolos tapi kuncinya ada (<code>lockedBar</code>), bar itu tetap dihitung sebagai sinyal
+        (<code>stats.nSig++</code>).</li>
+    <li><b>Blok CREATE (baris 359, 434&ndash;441).</b> Syarat ditambah <code>lockedBar</code>, arah selalu
+        diambil dari kunci bila ada, dan keempat level diambil dari kunci tanpa memanggil
+        <code>EngulfComputeLevels()</code> (R2.9). Setelah <code>state = dir</code>: simpan kunci (R2.1)
+        dan, bila <code>filled</code>, langsung jadikan ACTIVE + tulis buffer (R2.3).</li>
+    <li><b>Blok fill (baris 560, setelah fill SELL).</b> Tiga baris untuk menandai kunci sudah terisi
+        (<code>flags.hitBuy || flags.hitSell</code>). Tidak ada perubahan pada blok fill BUY/SELL.</li>
+    <li><b>Tidak ada perubahan</b> pada blok cancel (568&ndash;591), aturan &ldquo;tanpa break body&rdquo;
+        (598&ndash;602), FREEZE, gerbang alert (726&ndash;727), panel, dan <code>Drawing.mqh</code>.</li>
+  </ol>
+<pre>// ===== v2.04 - kunci setup intrabar (R2) ===================================
+// RecalculateEngulfing() dihitung ulang dari awal pada setiap tick dan tidak
+// menyimpan apa pun, jadi tabel inilah satu-satunya memori antar tick.
+struct EngulfLock
+{
+   datetime barTime;
+   int      dir;
+   double   pBreak;
+   double   pEntry;
+   double   pSL;
+   double   pTP;
+   bool     filled;
+};
+
+EngulfLock g_engulfLocks[];          // urut naik menurut barTime, tanpa batas
+
+int EngulfLockFind(const datetime barTime)          // binary search (R2.7)
+{
+   int lo = 0;
+   int hi = ArraySize(g_engulfLocks) - 1;
+
+   while(lo &lt;= hi)
+   {
+      int mid = (lo + hi) / 2;
+
+      if(g_engulfLocks[mid].barTime == barTime)
+         return mid;
+
+      if(g_engulfLocks[mid].barTime &lt; barTime)
+         lo = mid + 1;
+      else
+         hi = mid - 1;
+   }
+
+   return -1;
+}
+
+void EngulfLockStore(const datetime barTime, const int dir,
+                     const double pBreak, const double pEntry,
+                     const double pSL, const double pTP)
+{
+   if(EngulfLockFind(barTime) &gt;= 0)
+      return;
+
+   int size = ArraySize(g_engulfLocks);
+   ArrayResize(g_engulfLocks, size + 1);
+
+   int at = size;                               // bar baru selalu paling akhir
+   while(at &gt; 0 &amp;&amp; g_engulfLocks[at - 1].barTime &gt; barTime)
+   {
+      g_engulfLocks[at] = g_engulfLocks[at - 1];
+      at--;
+   }
+
+   g_engulfLocks[at].barTime = barTime;
+   g_engulfLocks[at].dir      = dir;
+   g_engulfLocks[at].pBreak   = pBreak;
+   g_engulfLocks[at].pEntry   = pEntry;
+   g_engulfLocks[at].pSL      = pSL;
+   g_engulfLocks[at].pTP      = pTP;
+   g_engulfLocks[at].filled   = false;
+}
+
+void EngulfLockMarkFilled(const datetime barTime)
+{
+   int k = EngulfLockFind(barTime);
+   if(k &gt;= 0)
+      g_engulfLocks[k].filled = true;
+}</pre>
+
+  <p class="dim" style="margin:12px 0 6px">Di dalam loop <code>RecalculateEngulfing()</code>:</p>
+<pre>// 2) deteksi + hitung sinyal (menggantikan baris 324-327)
+EngulfSignal sig = DetectEngulfing(i, open, high, low, close);
+
+const int  lockIdx   = (evalBar &amp;&amp; InpAllowFormingBar) ? EngulfLockFind(time[i]) : -1;
+const bool lockedBar = (lockIdx &gt;= 0 &amp;&amp; !sig.buy &amp;&amp; !sig.sell);   // R2.2
+
+if(evalBar &amp;&amp; (sig.buy || sig.sell || lockedBar))
+   stats.nSig++;                                                    // R2.6
+
+// 3) blok CREATE (baris 359): syarat + arah/level dari kunci
+if(evalBar &amp;&amp; state == STATE_NONE &amp;&amp; (sig.buy || sig.sell || lockedBar))
+{
+   int dir = lockIdx &gt;= 0 ? g_engulfLocks[lockIdx].dir : (sig.buy ? 1 : -1);
+   ...
+   if(lockIdx &gt;= 0)          // R2.9: level beku, jangan dihitung ulang
+   {
+      breakCalc = g_engulfLocks[lockIdx].pBreak;
+      entryCalc = g_engulfLocks[lockIdx].pEntry;
+      slCalc    = g_engulfLocks[lockIdx].pSL;
+      tpCalc    = g_engulfLocks[lockIdx].pTP;
+   }
+   else
+   {
+      EngulfComputeLevels(dir, o1, c1, wickTop, wickBot, bufEntry, bufSL, bufBodyBreak,
+                          breakCalc, entryCalc, slCalc, tpCalc);
+   }
+
+   if(EngulfRisk(dir, entryCalc, slCalc) &gt; mintick &amp;&amp; MathAbs(tpCalc - entryCalc) &gt; mintick)
+   {
+      ...
+      state = dir;
+
+      if(i == rates_total - 1 &amp;&amp; InpAllowFormingBar)               // R2.1
+         EngulfLockStore(time[i], dir, setup.pBreak, setup.pEntry, setup.pSL, setup.pTP);
+
+      if(lockIdx &gt;= 0 &amp;&amp; g_engulfLocks[lockIdx].filled)            // R2.3
+      {
+         state          = dir == 1 ? STATE_BUY_ACTIVE : STATE_SELL_ACTIVE;
+         setup.entryBar = i;
+         stats.nRun++;
+         if(dir == 1) stats.nBuyRun++; else stats.nSellRun++;
+
+         EngulfSetLineStyle(setup.lnE, STYLE_SOLID);
+         EngulfSetLineColor(setup.lnE, dir == 1 ? InpCBuyText : InpCSellText);
+         EngulfSetLabelText(setup.lbE,
+                            (dir == 1 ? "BUY " : "SELL ") + EngulfPriceText(setup.pEntry),
+                            dir == 1 ? InpCBuyText : InpCSellText, InpLabelSize);
+
+         if(dir == 1) BuyBuffer[i] = setup.pEntry; else SellBuffer[i] = setup.pEntry;
+         SignalSLBuffer[i] = setup.pSL;
+         SignalTPBuffer[i] = setup.pTP;
+      }
+   }
+}
+
+// 4) setelah blok fill SELL (baris 560): tanda kunci sudah terisi
+if(flags.hitBuy || flags.hitSell)
+   EngulfLockMarkFilled(time[i]);</pre>
+  <div class="note">
+    Catatan implementasi: <b>kunci menang atas pola</b>. Selama entri untuk bar itu ada, arah dan level
+    selalu dari kunci - termasuk bila close berbalik sangat jauh sampai bar yang sama memenuhi syarat
+    arah berlawanan, karena setup yang sudah diumumkan tidak boleh diganti diam-diam. Blok cancel
+    (568/581) tidak berubah: memakai <code>close[i]</code> dan <code>notFormingBar</code>, sehingga R2.4
+    keluar tanpa kode baru. R2.5 bisa dibuktikan: untuk BUY, <code>close &gt; ENTRY</code> berarti
+    <code>high(S) &gt;= ENTRY</code>, jadi pending pasti sudah terisi di bar S - setiap kunci berakhir
+    <i>filled</i> atau <i>canceled</i>, tidak ada cabang ketiga.
+  </div>
+</div>
+
+<h2>5. Acceptance criteria</h2>
+<div class="card">
+  <table>
+    <thead>
+      <tr><th style="width:30px">#</th><th>Skenario uji</th><th>Hasil yang diharapkan</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td>
+          <td><b>Filled lalu close gagal.</b> Candle S live: <code>high</code> melewati BREAK BODY, lalu
+              menyentuh ENTRY, lalu harga berbalik dan close di bawah <code>high(S&minus;1)</code></td>
+          <td>Panel tetap <code>BUY</code>, garis ENTRY/SL/TP tetap, buffer EA terisi, TP/SL di bar
+              berikutnya tetap dievaluasi; tidak ada alert tambahan (tidak ada <code>CANCELED</code>)</td></tr>
+      <tr><td>2</td>
+          <td><b>Armed lalu close gagal.</b> Sama seperti #1 tetapi <code>high(S)</code> tidak pernah
+              menyentuh ENTRY</td>
+          <td>Saat close: alert <code>ENTRY BUY CANCELED</code>, panel <code>NONE</code>, semua garis
+              setup hilang; bar berikutnya yang menyentuh ENTRY tidak mengisi order</td></tr>
+      <tr><td>3</td>
+          <td><b>Tanpa kegagalan.</b> Candle S live menyentuh ENTRY dan close-nya tetap di atas
+              <code>high(S&minus;1)</code></td>
+          <td>Identik dengan v2.03: <code>BREAK BODY</code> lalu <code>ENTRY FILLED</code>, panel
+              <code>BUY</code>; kunci tidak berpengaruh</td></tr>
+      <tr><td>4</td>
+          <td><b>Counter.</b> Bandingkan panel sesaat sebelum close S dan sesudah close S pada skenario #1</td>
+          <td><code>Signals</code> dan <code>Runs</code> tidak berubah angkanya (R2.6); yang berubah hanya
+              bila memang ada event baru</td></tr>
+      <tr><td>5</td>
+          <td><b>Re-attach / ganti timeframe</b> saat candle S masih berjalan (D9 = A)</td>
+          <td>Kunci hilang, bar dinilai ulang dengan close saat itu; bila pola gagal, setup tidak
+              muncul (perilaku v2.03). Ini batasan yang didokumentasikan, bukan bug</td></tr>
+      <tr><td>6</td>
+          <td><b>Regresi.</b> <code>InpAllowFormingBar = false</code> (default), jalankan acceptance
+              R1 #1&ndash;#7</td>
+          <td>Semua hasil sama persis dengan v2.03; tabel kunci tidak pernah terisi</td></tr>
+      <tr><td>7</td>
+          <td><b>Level beku (R2.9).</b> Catat ENTRY/SL/TP yang tampil intrabar, lalu bandingkan tepat
+              setelah candle S close (skenario #1 dan #3)</td>
+          <td>Angkanya identik, sama dengan isi alert <code>BREAK BODY &hellip; pending entry &hellip;</code>;
+              garis tidak bergeser dan fill tidak batal karena ATR berubah ke range final</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    Keputusan final: <b>D8 = A</b>, jadi buffer EA tetap diisi untuk setup terkunci dan EA berperilaku
+    sama dengan yang dilihat user. Bila suatu saat D8 diubah ke B, acceptance #1 berubah menjadi
+    &ldquo;garis/panel tetap, buffer kosong sehingga EA tidak entry&rdquo;.
+  </div>
+</div>
+
+<h2>6. File yang ikut diperbarui</h2>
+<div class="card">
+  <table>
+    <thead><tr><th style="width:250px">File</th><th>Perubahan</th></tr></thead>
+    <tbody>
+      <tr><td><a href="entry-requirement-final.html">entry-requirement-final.html</a></td>
+          <td>Kalimat &ldquo;pola yang gugur saat close sudah terlanjur diumumkan&rdquo; di D1 langkah 8
+              diganti tautan ke halaman ini (R2 sudah menutup jalur itu)</td></tr>
+      <tr><td><a href="entry-animation.html">entry-animation.html</a></td>
+          <td>Skenario C (VOID) sudah dihapus; tinggal A (fill) dan B (cancel). Baris tabel langkah
+              ditambah catatan &ldquo;close gagal setelah fill&rdquo; agar tidak terbaca sebagai void</td></tr>
+      <tr><td><a href="../../Docs/Indicator_MT5.md">Docs/Indicator_MT5.md</a></td>
+          <td>Bagian <i>Opsi intrabar</i> dan <i>Batasan</i>: &ldquo;level/pending/counter hilang
+              sendiri&rdquo; diganti aturan kunci + level beku</td></tr>
+      <tr><td><a href="../../README.md">README.md</a></td>
+          <td>Baris ringkasan intrabar (sekitar baris 184&ndash;188) disesuaikan dengan R2</td></tr>
+      <tr><td><a href="../../.claude/skills/hoekagata-mt5/SKILL.md">.claude/skills/hoekagata-mt5/SKILL.md</a></td>
+          <td>Ringkasan aturan engine (bagian A = P) ditambah satu paragraf tentang kunci setup</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<footer>
+  Requirement v2.04 &mdash; ditulis 23-10-2026, <b>diimplementasi</b> 23-10-2026 di
+  <code>HoekaGataIndicator_Core.mqh</code> + <code>HoekaGataIndicator.mq5</code> (<code>#property
+  version &quot;2.04&quot;</code>), compile bersih (<code>0 errors, 0 warnings</code>).
+  Lanjutan dari <a href="entry-requirement-final.html">entry-requirement-final.html</a>
+  (R1.1&ndash;R1.7, D1&ndash;D5) dan <a href="entry-visual-arm-p.html">entry-visual-arm-p.html</a>.
+  Animasi: <a href="entry-animation.html">entry-animation.html</a>.
+</footer>
+
+</body>
+</html>
+
