@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Desain arsitektur - HoekaGataAlgo sebagai eksekutor indikator</title>
+<style>
+  :root {
+    --bg:     #1e1e1e;
+    --card:   #232323;
+    --card2:  #1b1b1b;
+    --line:   #3a3a3a;
+    --text:   #cccccc;
+    --dim:    #8a8a8a;
+    --buy:    #26a69a;
+    --sell:   #ef5350;
+    --warn:   #ffeb3b;
+    --accent: #00d2d2;
+    --bad:    #ec7048;
+  }
+
+  body {
+    margin: 0;
+    padding: 32px 40px 72px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  h1 { font-size: 22px; margin: 0 0 4px; color: #fff; font-weight: 600; }
+  h2 {
+    font-size: 16px; margin: 38px 0 12px; color: #fff; font-weight: 600;
+    border-left: 3px solid var(--warn); padding-left: 9px;
+  }
+  h3 { font-size: 14px; margin: 24px 0 8px; color: #fff; font-weight: 600; }
+  p.sub { color: var(--dim); margin: 0 0 22px; max-width: 1000px; }
+  p { max-width: 1000px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 14px 16px;
+  }
+
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 13px; }
+  th, td { border: 1px solid var(--line); padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #2b2b2b; color: #fff; font-weight: 600; }
+  td.n { color: var(--dim); width: 42px; }
+
+  code {
+    background: #2b2b2b; border: 1px solid var(--line); border-radius: 3px;
+    padding: 1px 4px; font-family: Consolas, "Courier New", monospace; font-size: 12px;
+  }
+
+  pre {
+    background: var(--card2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 12px 14px; overflow-x: auto;
+    font-family: Consolas, "Courier New", monospace; font-size: 12px; line-height: 1.5;
+    color: #d6d6d6;
+  }
+
+  .buy  { color: var(--buy); }
+  .sell { color: var(--sell); }
+  .warn { color: var(--warn); }
+  .bad  { color: var(--bad); }
+  .ok   { color: var(--accent); }
+  .dim  { color: var(--dim); }
+
+  .tag {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    padding: 1px 7px; border-radius: 3px; vertical-align: middle;
+  }
+  .tag.must { background: #4a3b12; color: #ffd54f; border: 1px solid #7a6320; }
+  .tag.new  { background: #0e3c3c; color: #6fe3e3; border: 1px solid #1a6e6e; }
+  .tag.keep { background: #2c3a2c; color: #9ccc9c; border: 1px solid #47634a; }
+  .tag.gap  { background: #4a2318; color: #ffab91; border: 1px solid #8a4630; }
+
+  .flow { display: flex; flex-direction: column; gap: 0; align-items: stretch; }
+
+  .box {
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 10px 14px; background: var(--card);
+  }
+  .box h4 { margin: 0 0 4px; font-size: 13px; color: #fff; }
+  .box .meta { font-size: 12px; color: var(--dim); }
+  .box.ind  { border-color: #2f6f6f; }
+  .box.ea   { border-color: #6f5f2f; }
+  .box.sig  { border-color: #3a5a8a; background: #1d2430; }
+  .box.hi   { border-color: var(--accent); box-shadow: 0 0 0 1px #0e3c3c inset; }
+
+  .arrow {
+    text-align: center; color: var(--dim); font-size: 12px;
+    padding: 6px 0; font-family: Consolas, monospace;
+  }
+  .arrow b { color: var(--accent); font-weight: 600; }
+
+  .row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 0; min-width: 260px; }
+
+  .legend { font-size: 12px; color: var(--dim); margin-top: 12px; }
+  .legend span { margin-right: 16px; }
+
+  .stateflow {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    font-family: Consolas, monospace; font-size: 12px;
+  }
+  .st { border: 1px solid var(--line); border-radius: 5px; padding: 8px 10px; background: var(--card); }
+  .st b { display: block; color: #fff; font-size: 12px; margin-bottom: 3px; }
+  .st.b { border-color: #2f6f6f; }
+  .st.s { border-color: #6f3a3a; }
+  .st.n { border-color: #444; color: var(--dim); }
+</style>
+</head>
+<body>
+
+<h1>Desain arsitektur &mdash; <code>HoekaGataAlgo</code> sebagai eksekutor indikator</h1>
+<p class="sub">
+  Dokumen requirement sebelum implementasi. Tujuan tunggal: <b>semua keputusan trading
+  berasal dari <code>HoekaGataIndicator</code></b>. EA tidak punya aturan sinyal sendiri &mdash; ia hanya
+  membaca state indikator, menerjemahkannya menjadi ukuran posisi, dan mengeksekusi.
+  Semua angka pada dokumen ini harus cocok 1:1 dengan kode MQL5 setelah implementasi.
+</p>
+
+<div class="card">
+  <b class="warn">Prinsip yang mengikat seluruh desain</b>
+  <table>
+    <tr><th style="width:190px">Prinsip</th><th>Konsekuensi teknis</th></tr>
+    <tr>
+      <td><b>Indicator adalah otoritas</b></td>
+      <td>Pola, trigger, entry, SL, TP, batal &mdash; semuanya milik indikator. EA <b>tidak</b> menghitung ulang level, tidak memakai ATR sendiri, tidak punya filter pola.</td>
+    </tr>
+    <tr>
+      <td><b>EA hanya ukuran &amp; eksekusi</b></td>
+      <td>EA memutuskan <i>berapa lot</i> dan <i>kapan mengirim order</i>. SL/TP yang dikirim = angka indikator (kecuali opsi rekalkulasi yang dinyatakan eksplisit).</td>
+    </tr>
+
+<h2>1. Peta komponen</h2>
+
+<div class="flow">
+
+  <div class="box ind">
+    <h4>HoekaGATA\HoekaGataIndicator <span class="tag keep">SUMBER KEBENARAN</span></h4>
+    <div class="meta">
+      <code>Main/MQL5/Indicators/HokaGATA/</code> &mdash;
+      <code>Config</code> &middot; <code>Engulf</code> &middot; <code>Core</code> &middot; <code>Drawing</code> &middot; <code>Panel</code>
+    </div>
+    <div class="meta" style="margin-top:6px">
+      Engine state machine A = P: <code>STATE_NONE</code> &rarr; <code>SETUP</code> &rarr;
+      <code>ARMED</code> &rarr; <code>ACTIVE</code>. Menulis garis/label, panel statistik,
+      alert, dan <b>mempublikasikan</b> level ke buffer + GlobalVariables.
+    </div>
+  </div>
+
+  <div class="arrow">
+    &#9660; &nbsp;<b>PUBLISH</b> &nbsp;&mdash;&nbsp; 4 buffer (shift 0 / shift 1)
+    &nbsp;+&nbsp; <code>HG_SIG_&lt;ChartID&gt;_*</code> &nbsp;+&nbsp; heartbeat <code>_HB</code>
+  </div>
+
+  <div class="box sig hi">
+    <h4>Kontrak sinyal (read-only untuk EA) <span class="tag must">JANGAN UBAH</span></h4>
+    <div class="meta">Satu-satunya kanal komunikasi. EA membaca dari sini, tidak pernah menulis.</div>
+    <table>
+      <tr><th style="width:130px">Slot</th><th style="width:120px">Arti</th><th>Isi</th></tr>
+      <tr>
+        <td><code>C_*</code></td><td>shift 0 (bar hidup)</td>
+        <td><code>_T</code> waktu bar &middot; <code>_D</code> arah &middot; <code>_E</code> entry &middot; <code>_SL</code> &middot; <code>_TP</code></td>
+      </tr>
+      <tr>
+        <td><code>P_*</code></td><td>shift 1 (bar close)</td>
+        <td>idem, untuk pembacaan bar tertutup</td>
+      </tr>
+      <tr>
+        <td><code>_HB</code></td><td>heartbeat</td>
+        <td><code>TimeCurrent()</code> &mdash; bukti indikator masih hidup</td>
+      </tr>
+      <tr>
+        <td><code>_PMIN/_PMAX</code></td><td>legacy</td>
+        <td>kompatibilitas lama; <b>tidak dipakai</b> untuk keputusan apa pun</td>
+      </tr>
+    </table>
+    <div class="meta" style="margin-top:8px">
+      Aturan validasi: <code>_T</code> harus <b>sama persis</b> dengan
+      <code>iTime(symbol, period, shift)</code>. Jika tidak &rarr; sinyal ditolak
+      (stale / beda simbol / beda timeframe).
+    </div>
+  </div>
+
+  <div class="arrow">
+    &#9660; &nbsp;<b>READ</b> &nbsp;&mdash;&nbsp; GlobalVariable (jalur utama)
+    &nbsp;&rarr;&nbsp; fallback <code>iCustom</code> buffer
+  </div>
+
+  <div class="box ea">
+    <h4>Experts\HokaGATA_Algo\HoekaGataAlgo <span class="tag new">DIBANGUN ULANG</span></h4>
+    <div class="meta"><code>Main/MQL5/Experts/HokaGATA_Algo/</code> &mdash; dibagi per tanggung jawab.</div>
+    <table>
+      <tr><th style="width:215px">Modul</th><th>Tanggung jawab</th></tr>
+      <tr>
+        <td><code>HoekaGataAlgo.mq5</code></td>
+        <td>Input, globals, <code>OnInit/OnTick/OnTimer/OnTradeTransaction/OnChartEvent</code>. Wiring saja.</td>
+      </tr>
+      <tr>
+        <td><code>_Signal.mqh</code> <span class="tag new">baru</span></td>
+        <td>Baca kontrak, validasi, normalisasi menjadi satu struct <code>HgSignal</code>. <b>Titik kontak tunggal</b> ke indikator.</td>
+      </tr>
+      <tr>
+        <td><code>_Risk.mqh</code> <span class="tag new">baru</span></td>
+        <td>Ukuran lot dari risk %, harga eksekusi, rekalkulasi SL/TP terhadap fill aktual.</td>
+      </tr>
+      <tr>
+        <td><code>_Trading.mqh</code></td>
+        <td>State order EA, guard, kirim order, sinkron posisi, hitung hasil.</td>
+      </tr>
+      <tr>
+        <td><code>_Panel.mqh</code></td>
+        <td>Panel 2 halaman (status + input risiko). Prefix <code>HGP_</code>.</td>
+      </tr>
+      <tr>
+        <td><code>_Config.mqh</code></td>
+        <td>Persistensi setting panel via GlobalVariable.</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="arrow">
+    &#9660; &nbsp;<b>EXECUTE</b> &nbsp;&mdash;&nbsp; <code>CTrade</code> &rarr; broker
+  </div>
+
+  <div class="box">
+    <h4>Broker / MT5 terminal</h4>
+    <div class="meta">
+      Maksimal satu posisi per simbol &middot; magic <code>InpMagicNumber</code> &middot;
+      komentar <code>HG-Buy</code> / <code>HG-Sell</code>.
+    </div>
+  </div>
+
+</div>
+
+<div class="legend">
+  <span class="tag keep">SUMBER KEBENARAN</span> indikator
+  <span class="tag must">JANGAN UBAH</span> kontrak sinyal
+  <span class="tag new">BARU</span> modul EA
+</div>
+
+    <tr>
+      <td><b>Tidak ada state sinyal ganda</b></td>
+      <td>EA tidak menyimpan state pola sendiri. Satu-satunya state EA = state <i>order</i> (posisi apa yang sedang dipegang).</td>
+    </tr>
+    <tr>
+      <td><b>Kontrak tidak boleh pecah</b></td>
+      <td>4 buffer tetap: <code>0</code> BUY, <code>1</code> SELL, <code>2</code> SL, <code>3</code> TP. Kunci <code>HG_SIG_*</code> tetap namanya.</td>
+    </tr>
+  </table>
+</div>
+
+<h2>2. State machine indikator &mdash; apa yang sebenarnya dilihat EA</h2>
+
+<p>
+  Ini bagian paling penting. EA <b>tidak</b> melihat nama state. Ia hanya melihat apakah buffer
+  terisi. Karena itu pemetaan di bawah harus dipahami persis sebelum menulis kode EA.
+</p>
+
+<div class="stateflow">
+  <div class="st n"><b>NONE (0)</b>tidak ada setup. Buffer kosong di semua bar.</div>
+  <div class="st b"><b>SETUP (+1)</b>pola terdeteksi, menunggu break body. <span class="dim">Buffer kosong.</span></div>
+  <div class="st b"><b>ARMED (+2)</b>break body kena. <span class="dim">Buffer kosong.</span></div>
+  <div class="st b"><b>ACTIVE (+3)</b>entry terisi &rarr; <b class="ok">BUY buffer terisi</b>.</div>
+  <div class="st n"><b>NONE (0)</b>setup tidak pernah trigger.</div>
+  <div class="st s"><b>SETUP (&minus;1)</b>pola SELL, menunggu break body. <span class="dim">Buffer kosong.</span></div>
+  <div class="st s"><b>ARMED (&minus;2)</b>break body SELL kena. <span class="dim">Buffer kosong.</span></div>
+  <div class="st s"><b>ACTIVE (&minus;3)</b>entry terisi &rarr; <b class="sell">SELL buffer terisi</b>.</div>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <b class="warn">Temuan kunci: buffer hanya terisi saat state sudah ACTIVE</b>
+  <p style="margin:8px 0 0">
+    Di <code>Core.mqh</code> buffer ditulis hanya pada dua tempat:
+  </p>
+  <table>
+    <tr><th style="width:70px">Baris</th><th>Situasi</th><th>Arti untuk EA</th></tr>
+    <tr>
+      <td><code>~653</code>, <code>~871</code></td>
+      <td>Blok <code>if(flags.hitBuy || flags.hitSell)</code> &mdash; saat bar pola terisi (fill)</td>
+      <td>Fill yang <b>sudah terjadi di masa lalu</b>. Riwayat, bukan sinyal baru.</td>
+    </tr>
+    <tr>
+      <td><code>~981</code></td>
+      <td><code>if(state == STATE_BUY_ACTIVE) BuyBuffer[rates_total-1] = ...</code></td>
+      <td>Level yang <b>sedang hidup</b> di bar terakhir. Ini yang dibaca EA.</td>
+    </tr>
+  </table>
+  <p style="margin:10px 0 0">
+    Konsekuensi: <b>ARMED tidak pernah muncul di buffer</b>. EA tidak bisa dan tidak perlu
+    memasang pending order di level BREAK BODY. EA bereaksi pada momen fill, yaitu saat
+    <code>state</code> menjadi <code>ACTIVE</code>.
+  </p>
+</div>
+
+<h3>2.1 Alur keputusan EA (per tick)</h3>
+<pre>
+OnTick() / OnTimer()
+   |
+   +-- 1. Source alive?          HG_SIG_&lt;id&gt;_HB ada &amp; baru?  ── tidak ─&gt; reason="Indicator not attached", STOP
+   |
+   +-- 2. Algo enabled?          g_algoEnabled                 ── tidak ─&gt; reason="Manual", STOP
+   |
+   +-- 3. Read signal            HgSignal s = ReadSignal(shift)
+   |        |                       shift = InpUseClosedBarSignal ? 1 : 0
+   |        +-- _T != iTime()      ──&gt; tolak (stale), STOP
+   |        +-- _D == 0            ──&gt; tidak ada sinyal, STOP
+   |
+   +-- 4. Dedupe                 s.barTime == g_lastHandledBar?  ── ya ─&gt; STOP
+   |
+   +-- 5. Guards (blocking)      allowBuy/Sell · 1 posisi/simbol · minBar · jam · spread · lossLimit
+   |                               ── gagal ─&gt; reason=..., log, TIDAK set g_lastHandledBar
+   |
+   +-- 6. Sizing                 lot = RiskLot(dir, execPrice, sl, tp)
+   |                               ── lot<=0 ─&gt; reason="Invalid risk", STOP
+   |
+   +-- 7. Execute                trade.Buy/Sell(lot, exec, SL, TP)
+   |                               ── sukses ─&gt; g_lastHandledBar = s.barTime
+   |
+   +-- 8. Panel                  refresh
+</pre>
+
+<h3>2.2 Kapan EA tidak boleh bertindak</h3>
+<table>
+  <tr><th style="width:230px">Kondisi</th><th>Perilaku</th><th style="width:150px">Sifat</th></tr>
+  <tr><td>Sudah ada posisi terbuka (simbol ini, magic ini)</td><td>Lewati sinyal baru</td><td><b>Tegas</b> &mdash; tidak averaging</td></tr>
+  <tr><td>Ada pending order milik EA</td><td>Lewati</td><td><b>Tegas</b></td></tr>
+  <tr><td>Sinyal arah berlawanan dengan posisi berjalan</td><td>Lewati (indikator yang menutup; EA tidak membalik arah)</td><td><b>Tegas</b></td></tr>
+  <tr><td><code>_HB</code> hilang</td><td>Berhenti; panel menampilkan &ldquo;Indicator not attached&rdquo;</td><td><b>Tegas</b></td></tr>
+  <tr><td>Spread &gt; <code>InpMaxSpreadPoints</code></td><td>Lewati, log, <b>tidak</b> menandai bar terpakai &rarr; bisa dicoba lagi di tick berikutnya</td><td>Lunak</td></tr>
+  <tr><td>Di luar jam trading</td><td>idem</td><td>Lunak</td></tr>
+  <tr><td>Jarak bar &lt; <code>InpMinBarsBetweenEntry</code></td><td>idem</td><td>Lunak</td></tr>
+  <tr><td>Loss beruntun &ge; <code>InpMaxConsecutiveLosses</code></td><td>Auto-disable algo + notifikasi</td><td><b>Tegas</b></td></tr>
+</table>
+<p class="legend">
+  <b>Tegas</b> = sinyal dibuang untuk selamanya. <b>Lunak</b> = sinyal masih boleh dieksekusi
+  bila kondisinya membaik sebelum indikator mengganti sinyal.
+</p>
+
+
+<h2>3. Kontrak data di dalam EA &mdash; struct <code>HgSignal</code></h2>
+
+<p>
+  Semua pembacaan indikator dinormalisasi ke satu struct. Modul lain di EA
+  <b>tidak boleh</b> memanggil <code>GlobalVariableGet</code> atau <code>CopyBuffer</code> langsung.
+  Ini yang membuat EA tetap patuh pada satu sumber kebenaran.
+</p>
+
+<pre>
+struct HgSignal
+{
+   bool      valid;        // true bila struktur terisi &amp; lolos validasi
+   int       direction;    // +1 BUY, -1 SELL, 0 = tidak ada sinyal
+   datetime  barTime;      // _T  - waktu bar sumber sinyal
+   double    entry;        // _E  - level entry indikator (breakout-stop price)
+   double    sl;           // _SL
+   double    tp;           // _TP
+   string    source;       // "gv" (GlobalVariable) | "buf" (iCustom) | "none"
+   string    reject;       // alasan penolakan bila valid = false
+};
+</pre>
+
+<h3>3.1 Dua jalur pembacaan</h3>
+<table>
+  <tr><th style="width:150px">Jalur</th><th style="width:150px">Kapan dipakai</th><th>Cara</th><th style="width:130px">Status</th></tr>
+  <tr>
+    <td><b>GV</b> (utama)</td>
+    <td>Selalu, bila <code>_HB</code> ada</td>
+    <td><code>GlobalVariableGet</code> untuk <code>_T/_D/_E/_SL/_TP</code>; cocokkan <code>_T</code> dengan <code>iTime()</code></td>
+    <td><span class="tag keep">PERTAHANKAN</span></td>
+  </tr>
+  <tr>
+    <td><b>Buffer</b> (fallback)</td>
+    <td>Hanya bila GV tidak ada</td>
+    <td><code>iCustom("HokaGATA\\HoekaGataIndicator")</code> lalu <code>CopyBuffer</code> 0..3</td>
+    <td><span class="tag keep">PERTAHANKAN</span></td>
+  </tr>
+</table>
+
+<div class="card" style="margin-top:14px">
+  <b class="warn">Aturan urutan yang wajib</b>
+  <ol style="margin:8px 0 0; padding-left:22px">
+    <li>GV diperiksa <b>lebih dulu</b>. Bila <code>_HB</code> ada tetapi <code>_T</code> tidak cocok,
+        <b>jangan</b> diam-diam jatuh ke buffer &mdash; laporkan sebagai stale, karena itu tanda
+        timeframe/simbol tidak sinkron.</li>
+    <li>Fallback buffer hanya untuk kasus <b>indikator tidak mempublikasikan GV sama sekali</b>
+        (versi lama / di-attach tanpa build EA-aware).</li>
+    <li>Setiap pembacaan mengisi <code>source</code> supaya panel dan log bisa menunjukkan
+        dari mana angka itu datang.</li>
+  </ol>
+</div>
+
+
+<h2>4. Gap analysis &mdash; kode EA saat ini vs requirement</h2>
+
+<p>
+  Diperiksa terhadap <code>HoekaGataAlgo.mq5</code> + <code>Includes/</code> yang ada sekarang.
+  Setiap baris berstatus <span class="tag gap">GAP</span> harus ditutup sebelum implementasi
+  dianggap selesai.
+</p>
+
+<table>
+  <tr><th style="width:44px">#</th><th style="width:240px">Temuan</th><th>Dampak</th><th style="width:120px">Aksi</th></tr>
+
+  <tr>
+    <td class="n">1</td>
+    <td><code>InpUseClosedBarSignal = false</code> &rarr; EA membaca <b>shift 0</b> (bar hidup)</td>
+    <td>Indikator mem-publish level ACTIVE ke <code>rates_total-1</code> tiap tick, jadi shift 0
+        memang tempat sinyal hidup. Nilainya bisa berubah sampai bar tutup.</td>
+    <td><span class="tag keep">PERTAHANKAN</span> default, beri catatan di panel</td>
+  </tr>
+
+  <tr>
+    <td class="n">2</td>
+    <td><code>g_lastSignalTime</code> hanya di-set bila <b>order berhasil terkirim</b></td>
+    <td>Bila order gagal, EA mencoba lagi di tick berikutnya dengan sinyal yang sama &mdash;
+        berpotensi order ganda bila kegagalan bersifat ambigu (timeout / requote).</td>
+    <td><span class="tag gap">GAP</span><br>tandai saat <i>keputusan</i> dibuat</td>
+  </tr>
+
+  <tr>
+    <td class="n">3</td>
+    <td>Tidak ada guard <b>&ldquo;sudah ada posisi terbuka&rdquo;</b></td>
+    <td>Sinyal ACTIVE bertahan beberapa bar selama TP/SL belum kena. EA bisa membuka posisi
+        berulang untuk sinyal yang sama.</td>
+    <td><span class="tag gap">GAP</span><br>guard posisi/pending per simbol+magic</td>
+  </tr>
+
+  <tr>
+    <td class="n">4</td>
+    <td>Tidak ada guard <b>arah berlawanan</b></td>
+    <td>Bila indikator sudah SELL sementara posisi EA masih BUY, EA akan membuka SELL kedua.</td>
+    <td><span class="tag gap">GAP</span><br>satu posisi per simbol</td>
+  </tr>
+
+  <tr>
+    <td class="n">5</td>
+    <td>Risk, trading, panel, config bercampur dalam 3 file besar</td>
+    <td><code>_Trading.mqh</code> (18 KB) memuat pembacaan sinyal, guard, eksekusi, lot, dan helper
+        waktu sekaligus. Sulit diuji, mudah regresi.</td>
+    <td><span class="tag gap">GAP</span><br>pecah jadi <code>_Signal</code>/<code>_Risk</code>/<code>_Trading</code></td>
+  </tr>
+</table>
+
+
+
+<h3>4.1 Gap lanjutan &mdash; menyangkut kepatuhan pada indikator</h3>
+
+<table>
+  <tr><th style="width:44px">#</th><th style="width:240px">Temuan</th><th>Dampak</th><th style="width:120px">Aksi</th></tr>
+
+  <tr>
+    <td class="n">6</td>
+    <td><code>InpRecalculateSLTPFromActualEntry = true</code> (default)</td>
+    <td>SL/TP yang dikirim <b>bukan</b> angka indikator &mdash; digeser mengikuti harga fill agar
+        rasio R:R tetap. Ini bertentangan langsung dengan prinsip
+        &ldquo;EA hanya menjalankan indikator&rdquo;.</td>
+    <td><span class="tag gap">GAP</span><br>default &rarr; <b>false</b></td>
+  </tr>
+
+  <tr>
+    <td class="n">7</td>
+    <td><code>InpVpsMode = true</code> &rarr; <code>OnTick()</code> tidak memproses sinyal</td>
+    <td>EA hanya jalan lewat <code>OnTimer()</code> (1 detik). Latensi terhadap breakout sampai 1
+        detik, dan pada akun lambat bisa melewatkan level.</td>
+    <td><span class="tag gap">GAP</span><br>default &rarr; <b>false</b></td>
+  </tr>
+
+  <tr>
+    <td class="n">8</td>
+    <td><code>DeleteChartSignalIndicators()</code> &mdash; EA bisa menghapus indikator dari chart</td>
+    <td>EA menghapus sumber kebenarannya sendiri. Saat ini tidak dipanggil, tetapi masih ada
+        dan berbahaya bila suatu saat dipanggil.</td>
+    <td><span class="tag gap">GAP</span><br>hapus fungsi</td>
+  </tr>
+
+  <tr>
+    <td class="n">9</td>
+    <td><code>_HB</code> hanya dicek keberadaannya, bukan kesegarannya</td>
+    <td>Indikator yang hang / berhenti menghitung tetap dianggap hidup, sehingga EA membaca
+        level basi.</td>
+    <td><span class="tag gap">GAP</span><br>batas umur heartbeat</td>
+  </tr>
+
+  <tr>
+    <td class="n">10</td>
+    <td><code>IsHoekaGataIndicatorShortName</code> memakai <code>StringFind(..., "HokaGATA")</code></td>
+    <td>Bisa salah cocok dengan program lain yang namanya mengandung <code>HokaGATA</code>.</td>
+    <td><span class="tag gap">GAP</span><br>cocokkan shortname persis</td>
+  </tr>
+
+  <tr>
+    <td class="n">11</td>
+    <td>Panel EA memakai prefix <code>HGCP_</code> (<code>PANEL_PREFIX</code>)</td>
+    <td>Konvensi repo: panel EA harus <code>HGP_</code>. <code>HGCP_</code> tidak terdaftar di
+        <code>AGENTS.md</code> dan berisiko tumpang tindih dengan prefix indikator
+        <code>HoekaGATA_Engulf_</code>.</td>
+    <td><span class="tag gap">GAP</span><br>rename ke <code>HGP_</code></td>
+  </tr>
+
+  <tr>
+    <td class="n">12</td>
+    <td>Tidak ada penanganan <b>posisi ditutup manual</b> oleh user</td>
+    <td>Bila user menutup posisi dari terminal, state panel EA bisa menampilkan
+        &ldquo;posisi terbuka&rdquo; yang menyesatkan sampai EA query ulang.</td>
+    <td><span class="tag gap">GAP</span><br>sinkron tiap tick dari <code>PositionsTotal()</code></td>
+  </tr>
+</table>
+
+<div class="card" style="margin-top:18px">
+  <b class="ok">Ringkasan: 9 GAP, 1 PERTAHANKAN, 0 perubahan pada indikator</b>
+  <p style="margin:8px 0 0">
+    <b>Indikator tidak perlu diubah sama sekali</b> untuk mencapai tujuan ini. Semua yang dibutuhkan
+    EA sudah dipublikasikan: arah, entry, SL, TP, waktu bar, dan heartbeat. Pekerjaan sepenuhnya
+    berada di sisi EA.
+  </p>
+</div>
+
+<h2>5. Urutan eksekusi terperinci</h2>
+
+<h3>5.1 Siklus hidup EA</h3>
+<pre>
+OnInit()
+  +-- validasi input (risk % &gt; 0, magic != 0, spread &gt;= 0, dst.)
+  +-- trade.SetExpertMagicNumber / SetDeviationInPoints
+  +-- LoadPanelConfig()
+  +-- ResolveSignalSource()          : cek _HB atau cari handle iCustom
+  +-- CreateControlPanel()           : hanya bila InpShowPanel
+  +-- EventSetTimer(1)               : untuk panel &amp; mode VPS
+  +-- return INIT_SUCCEEDED          : TIDAK gagal walau indikator belum di-attach
+
+OnDeinit(reason)
+  +-- EventKillTimer()
+  +-- StopPanelDrag()
+  +-- ReleaseIndicatorHandle()
+  +-- DeleteControlPanel()
+  +-- TIDAK menghapus indikator (chart milik user)
+  +-- TIDAK menutup posisi (posisi tetap hidup dengan SL/TP di broker)
+
+OnTick()      : bila !InpVpsMode -&gt; ProcessSignal(); UpdatePanel(throttled)
+OnTimer()     : ProcessSignal(); UpdatePanelIfDue()
+OnTradeTransaction(): update hitungan loss beruntun, auto-disable bila limit
+</pre>
+
+<div class="card" style="margin-top:12px">
+  <b class="warn">Keputusan desain: EA <u>tidak</u> menutup posisi saat di-detach</b>
+  <p style="margin:8px 0 0">
+    SL dan TP sudah hidup di sisi broker. Menutup posisi saat EA dilepas akan mengubah hasil
+    trading yang seharusnya sudah diputuskan indikator. Karena itu <code>OnDeinit</code> hanya
+    membersihkan UI. Ini perlu disetujui secara eksplisit sebelum implementasi.
+  </p>
+</div>
+
+<h3>5.2 Sumber harga eksekusi</h3>
+<p>
+  Indikator mempublikasikan <b>level breakout-stop</b> (<code>_E</code>), bukan harga pasar.
+  Pada mode intrabar, saat state menjadi ACTIVE harga sudah melewati <code>_E</code>, sehingga
+  order pasar akan terisi di harga sekarang &mdash; lebih buruk dari <code>_E</code>.
+</p>
+
+<table>
+  <tr><th style="width:200px">Mode</th><th>Cara EA mengeksekusi</th><th style="width:170px">Deviasi dari indikator</th></tr>
+  <tr>
+    <td><b>A. Market (disarankan)</b></td>
+    <td>Order pasar pada harga sekarang, SL/TP = angka indikator apa adanya</td>
+    <td>Entry bisa lebih buruk (slippage), SL/TP <b>identik</b></td>
+  </tr>
+  <tr>
+    <td><b>B. Market + rekalkulasi</b></td>
+    <td>Order pasar, lalu SL digeser sejauh selisih entry&rarr;fill agar jarak risiko tetap;
+        TP dibangun ulang dari R:R</td>
+    <td>SL/TP <b>berbeda</b> dari indikator</td>
+  </tr>
+</table>
+
+<p class="legend">
+  Sesuai prinsip dokumen ini, <b>Mode A</b> menjadi default
+  (<code>InpRecalculateSLTPFromActualEntry = false</code>). Mode B tetap tersedia bagi user yang
+  lebih mementingkan R:R konsisten daripada kesamaan dengan indikator.
+</p>
+
+<h3>5.3 Rumus sizing (tidak berubah dari sekarang)</h3>
+<pre>
+riskMoney  = ACCOUNT_BALANCE * RiskPercentForDirection(dir) / 100
+slDistance = |marketPrice - signalSL|
+lossPerLot = slDistance / tickSize * tickValue
+rawLot     = riskMoney / lossPerLot
+lot        = NormalizeVolume(rawLot)      // clamp min/max, floor ke step
+</pre>
+<p class="legend">
+  <code>RiskPercentForDirection</code> memisahkan persen BUY dan SELL &mdash; dipertahankan
+  karena sudah dipakai panel. Sumber kebenaran ukuran risiko tetap keputusan user, bukan indikator.
+</p>
+
+<h2>6. Batasan &amp; risiko yang harus diterima</h2>
+
+<table>
+  <tr><th style="width:250px">Batasan</th><th>Penjelasan</th></tr>
+  <tr>
+    <td><b>Buffer hanya ada saat ACTIVE</b></td>
+    <td>EA tidak bisa mem-placing order di level BREAK BODY (ARMED). Ini konsekuensi desain
+        indikator A = P dan <b>tidak diubah</b>. Jika nanti dibutuhkan pending order sungguhan,
+        itu perubahan indikator, bukan EA.</td>
+  </tr>
+  <tr>
+    <td><b>Satu sinyal, satu posisi</b></td>
+    <td>EA tidak averaging, tidak menambah, tidak membalik arah. Semua penambahan posisi adalah
+        keputusan di luar scope ini.</td>
+  </tr>
+  <tr>
+    <td><b>Rekonsiliasi lewat magic</b></td>
+    <td>Posisi dianggap milik EA hanya bila <code>MAGIC == InpMagicNumber</code> dan
+        <code>SYMBOL == _Symbol</code>. Posisi manual user tidak disentuh.</td>
+  </tr>
+  <tr>
+    <td><b>Heartbeat harus dipertahankan</b></td>
+    <td>Indikator mem-publish <code>_HB</code> di setiap <code>OnCalculate</code>. EA menganggap
+        sumber mati bila <code>TimeCurrent() - _HB</code> melebihi batas (usul: 3&times; periode,
+        minimal 120 detik).</td>
+  </tr>
+  <tr>
+    <td><b>Beda timeframe = tolak</b></td>
+    <td>Indikator mengunci <code>_T</code> ke bar chart-nya. EA di timeframe lain tidak akan cocok
+        &mdash; ini fitur pengaman, bukan bug.</td>
+  </tr>
+  <tr>
+    <td><b>Tester</b></td>
+    <td>Di Strategy Tester EA memakai <code>iCustom</code> (GV tidak tersedia antar-program).
+        <code>#property tester_indicator</code> harus tetap ada.</td>
+  </tr>
+</table>
+
+
+<h2>7. Acceptance criteria</h2>
+
+<p>Implementasi EA dinyatakan memenuhi requirement bila <b>semua</b> poin berikut terbukti.</p>
+
+<table>
+  <tr><th style="width:44px">#</th><th style="width:250px">Kriteria</th><th>Cara membuktikan</th></tr>
+
+  <tr>
+    <td class="n">A1</td>
+    <td>Indikator tidak diubah</td>
+    <td><code>git diff</code> pada <code>Main/MQL5/Indicators/</code> hanya berisi <code>.ex5</code> hasil
+        kompilasi ulang, bukan perubahan sumber.</td>
+  </tr>
+
+  <tr>
+    <td class="n">A2</td>
+    <td>EA menolak jalan tanpa indikator</td>
+    <td>Hapus indikator dari chart &rarr; panel menampilkan <b>Indicator not attached</b>, tidak ada order
+        yang dikirim, log mencatat alasannya.</td>
+  </tr>
+
+  <tr>
+    <td class="n">A3</td>
+    <td>EA menolak sinyal basi</td>
+    <td>Ganti timeframe EA saja &rarr; <code>_T</code> tidak cocok &rarr; panel <b>Signal stale / timeframe
+        mismatch</b>, tidak ada order.</td>
+  </tr>
+
+  <tr>
+    <td class="n">A4</td>
+    <td>Satu sinyal = satu order</td>
+    <td>Saat satu setup ACTIVE bertahan 5 bar, hanya <b>satu</b> posisi terbuka. Terbukti dari
+        <code>g_lastHandledBar</code> + guard posisi.</td>
+  </tr>
+
+  <tr>
+    <td class="n">A5</td>
+    <td>Tidak ada averaging / flip</td>
+    <td>Saat posisi BUY hidup lalu indikator memberi SELL, EA <b>tidak</b> membuka SELL.
+        Log mencatat <b>blocked: position open</b>.</td>
+  </tr>
+
+  <tr>
+    <td class="n">A6</td>
+    <td>SL/TP yang terkirim = angka indikator</td>
+    <td>Dengan default baru, SL/TP pada posisi <b>identik</b> dengan garis SL/TP di chart
+        (bandingkan angka di panel, log, dan terminal).</td>
+  </tr>
+
+  <tr>
+    <td class="n">A7</td>
+    <td>Lot sesuai risk %</td>
+    <td>Ubah <code>InpRiskBuyPercent</code> &rarr; lot berubah proporsional; panel menampilkan
+        risk money dan loss per lot.</td>
+  </tr>
+
+  <tr>
+    <td class="n">A8</td>
+    <td>Filter lunak tidak membakar sinyal</td>
+    <td>Set <code>InpMaxSpreadPoints = 0</code> &rarr; sinyal dilewati; naikkan spread limit sebelum
+        indikator mengganti sinyal &rarr; order <b>tetap</b> masuk.</td>
+  </tr>
+
+  <tr>
+    <td class="n">A9</td>
+    <td>Auto-disable loss beruntun</td>
+    <td>Set <code>InpMaxConsecutiveLosses = 1</code> &rarr; setelah 1 losing trade, algo nonaktif dan
+        panel menampilkan alasan.</td>
+  </tr>
+
+  <tr>
+    <td class="n">A10</td>
+    <td>Heartbeat mati terdeteksi</td>
+    <td>Saat indikator dibekukan / terminal memblokir <code>OnCalculate</code> lebih lama dari batas
+        &rarr; panel <b>Indicator stale</b>.</td>
+  </tr>
+
+  <tr>
+    <td class="n">A11</td>
+    <td>Kompilasi bersih</td>
+    <td><code>Build-MT5.ps1 -Target EA</code> &rarr; <code>0 errors, 0 warnings</code>, deploy + SHA256
+        verified.</td>
+  </tr>
+
+  <tr>
+    <td class="n">A12</td>
+    <td>Uji tester</td>
+    <td>Strategy Tester menghasilkan trade, membuktikan jalur <code>iCustom</code> berfungsi.</td>
+  </tr>
+</table>
+
+
+
+<h2>8. Rencana implementasi bertahap</h2>
+
+<p>Urutan ini disusun agar setiap tahap bisa dibangun dan diverifikasi sendiri.</p>
+
+<table>
+  <tr><th style="width:70px">Tahap</th><th style="width:230px">Isi</th><th>Hasil yang bisa diuji</th></tr>
+  <tr>
+    <td><b>F1</b></td>
+    <td><code>_Signal.mqh</code> &mdash; struct <code>HgSignal</code>, GV + buffer, validasi <code>_T</code>, heartbeat</td>
+    <td>Panel menampilkan sinyal terkini beserta <code>source</code> dan status heartbeat. Belum ada order.</td>
+  </tr>
+  <tr>
+    <td><b>F2</b></td>
+    <td><code>_Risk.mqh</code> &mdash; lot, harga eksekusi, mode SL/TP</td>
+    <td>Panel menampilkan lot yang <i>akan</i> dipakai tanpa mengirim order (mode <i>preview</i>).</td>
+  </tr>
+  <tr>
+    <td><b>F3</b></td>
+    <td><code>_Trading.mqh</code> &mdash; guard posisi, arah, dedupe <code>g_lastHandledBar</code></td>
+    <td>A2&ndash;A5 lulus. Order benar-benar terkirim.</td>
+  </tr>
+  <tr>
+    <td><b>F4</b></td>
+    <td>Filter lunak, loss beruntun, auto-disable, sinkron posisi manual</td>
+    <td>A8, A9 lulus.</td>
+  </tr>
+  <tr>
+    <td><b>F5</b></td>
+    <td><code>_Panel.mqh</code> &mdash; prefix <code>HGP_</code>, 2 halaman, tampilkan seluruh state</td>
+    <td>UI 1:1 dengan mockup <code>panel-mockup.html</code>.</td>
+  </tr>
+  <tr>
+    <td><b>F6</b></td>
+    <td>Uji tester + <code>Docs/EA_MT5.md</code> diperbarui</td>
+    <td>A11, A12 lulus.</td>
+  </tr>
+</table>
+
+<div class="card" style="margin-top:18px">
+  <b class="warn">Keputusan yang perlu disetujui sebelum F1 dimulai</b>
+  <table style="margin-top:10px">
+    <tr><th style="width:44px">#</th><th style="width:300px">Pertanyaan</th><th>Usulan default</th></tr>
+    <tr><td class="n">D1</td><td><code>InpRecalculateSLTPFromActualEntry</code></td>
+        <td><b>false</b> &mdash; SL/TP identik dengan indikator (Mode A)</td></tr>
+    <tr><td class="n">D2</td><td><code>InpVpsMode</code></td>
+        <td><b>false</b> &mdash; proses di setiap tick</td></tr>
+    <tr><td class="n">D3</td><td><code>InpUseClosedBarSignal</code></td>
+        <td><b>false</b> &mdash; shift 0, mengikuti perilaku indikator sekarang</td></tr>
+    <tr><td class="n">D4</td><td>Batas umur heartbeat</td>
+        <td><code>max(120 detik, 3 &times; periode)</code></td></tr>
+    <tr><td class="n">D5</td><td>Perilaku saat EA di-detach dengan posisi terbuka</td>
+        <td>Biarkan posisi hidup (SL/TP di broker), hanya bersihkan UI</td></tr>
+    <tr><td class="n">D6</td><td>Prefix objek panel</td>
+        <td><code>HGP_</code> (rename dari <code>HGCP_</code>)</td></tr>
+  </table>
+</div>
+
+<h2>9. Yang sengaja <u>tidak</u> termasuk</h2>
+
+<table>
+  <tr><th style="width:250px">Tidak termasuk</th><th>Alasan</th></tr>
+  <tr><td>Pending order di level BREAK BODY</td><td>Membutuhkan perubahan indikator (buffer hanya terisi saat ACTIVE). Di luar scope.</td></tr>
+  <tr><td>Trailing stop, break-even, partial close</td><td>Itu manajemen posisi, bukan eksekusi sinyal. Keputusan terpisah.</td></tr>
+  <tr><td>Multi-simbol / multi-timeframe grid</td><td>Satu instance = satu chart. Menjalankan beberapa chart adalah caranya.</td></tr>
+  <tr><td>Averaging / pyramiding</td><td>Bertentangan dengan satu-sinyal-satu-posisi.</td></tr>
+  <tr><td><code>HoekaGataRiskPanel</code> (HGRP)</td><td>Proyek terpisah di branch <code>feat/risk-calculator</code>.</td></tr>
+  <tr><td>Perubahan <code>Docs/Indicator_MT5.md</code></td><td>Indikator tidak berubah, dokumennya tetap valid.</td></tr>
+</table>
+
+<h2>10. Berkas yang akan disentuh pada implementasi</h2>
+
+<pre>
+Main/MQL5/Experts/HokaGATA_Algo/
+  HoekaGataAlgo.mq5              : input + globals + event handler (dipangkas)
+  Includes/
+    HoekaGataAlgo_Signal.mqh     : BARU     - HgSignal, baca GV/buffer, validasi, heartbeat
+    HoekaGataAlgo_Risk.mqh       : BARU     - lot, harga eksekusi, mode SL/TP
+    HoekaGataAlgo_Trading.mqh    : dipecah  - guard, dedupe, order, sinkron posisi
+    HoekaGataAlgo_Panel.mqh      : diubah   - prefix HGP_, tampilkan HgSignal
+    HoekaGataAlgo_Config.mqh     : hampir tetap
+  HoekaGataAlgo.ex5              : hasil kompilasi
+
+Main/Tools/Build-MT5.ps1         : TIDAK berubah (path sudah benar)
+Docs/EA_MT5.md                   : diperbarui setelah implementasi
+Main/MQL5/Indicators/HokaGATA/   : TIDAK disentuh
+</pre>
+
+<p class="legend" style="margin-top:26px">
+  Dokumen requirement &mdash; dibuat sebelum implementasi. Rujukan baris merujuk ke
+  <code>HoekaGataIndicator_Core.mqh</code> dan <code>HoekaGataAlgo_Trading.mqh</code> pada commit
+  <code>0bd6211</code> (branch <code>feat/algotrade</code>).
+</p>
+
+</body>
+</html>
