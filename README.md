@@ -13,7 +13,7 @@ sumber aturan sekaligus alat validasi visual.
 | Komponen | Path | Dokumentasi |
 | --- | --- | --- |
 | Indikator MT5 (Engulfing Breakout) | `Main/MQL5/Indicators/HokaGATA/HoekaGataIndicator.mq5` | [`Docs/Indicator_MT5.md`](Docs/Indicator_MT5.md) |
-| EA MT5 (eksekutor signal) | `Main/MQL5/Experts/HokaGATA/HoekaGataAlgo.mq5` | [`Docs/EA_MT5.md`](Docs/EA_MT5.md) |
+| EA MT5 (eksekutor signal) | `Main/MQL5/Experts/HokaGATA_Algo/HoekaGataAlgo.mq5` | [`Docs/EA_MT5.md`](Docs/EA_MT5.md) |
 | Pine Script Engulfing Breakout (lengkap) | `Source/HoekaGata_Indicator.pine` | [`Docs/TradingView.md`](Docs/TradingView.md) |
 | Pine Script Engulfing Breakout (draft lama) | `Source/HoekaGata_Indicator_Engulf.pine` | [`Docs/TradingView.md`](Docs/TradingView.md) |
 | Mockup panel hasil (HTML) | `Main/Docs/panel-mockup.html` | Acuan layout panel indikator |
@@ -89,7 +89,7 @@ Main/
         HoekaGataIndicator_Core.mqh      Engine replay + state machine + buffer + alert
         HoekaGataIndicator_Drawing.mqh   Helper objek garis/label
         HoekaGataIndicator_Panel.mqh     Panel statistik (objek chart, tanpa canvas)
-    Experts/HokaGATA/
+    Experts/HokaGATA_Algo/
       HoekaGataAlgo.mq5              Entry point EA + input + konstanta panel
       HoekaGataAlgo.ex5              Hasil compile
       Includes/
@@ -125,7 +125,7 @@ dengan SHA256.
 ### Cara manual
 
 1. Copy `Main/MQL5/Indicators/HokaGATA/` ke `MQL5/Indicators/HokaGATA/`.
-2. Copy `Main/MQL5/Experts/HokaGATA/` ke `MQL5/Experts/HokaGATA/`.
+2. Copy `Main/MQL5/Experts/HokaGATA_Algo/` ke `MQL5/Experts/HokaGATA_Algo/`.
 3. Compile `HoekaGataIndicator.mq5` lalu `HoekaGataAlgo.mq5` di MetaEditor.
 4. Restart MT5 atau refresh Navigator jika program belum muncul.
 

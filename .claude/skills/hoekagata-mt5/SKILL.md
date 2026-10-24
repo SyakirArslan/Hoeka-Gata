@@ -1,6 +1,6 @@
 ---
 name: hoekagata-mt5
-description: Build, compile, and deploy the HoekaGata MT5 indicator and EA. Use when working on Source/*.pine, Main/MQL5/Indicators/HokaGATA, or Main/MQL5/Experts/HokaGATA — covers the Pine-to-MQL5 rules, the 4-buffer + HG_SIG_* contract, the MetaEditor CLI compile loop, and deployment into the local MT5 terminal.
+description: Build, compile, and deploy the HoekaGata MT5 indicator and EA. Use when working on Source/*.pine, Main/MQL5/Indicators/HokaGATA, or Main/MQL5/Experts/HokaGATA_Algo — covers the Pine-to-MQL5 rules, the 4-buffer + HG_SIG_* contract, the MetaEditor CLI compile loop, and deployment into the local MT5 terminal.
 ---
 
 # HoekaGata MT5 — build / compile / deploy
@@ -12,7 +12,7 @@ Two MT5 programs that must stay in sync:
 | Program | Path | Role |
 | --- | --- | --- |
 | Indicator | `Main/MQL5/Indicators/HokaGATA/HoekaGataIndicator.mq5` | Signal engine. Detects setups, draws Entry/SL/TP/BreakBody lines + stats panel, publishes signals. |
-| EA | `Main/MQL5/Experts/HokaGATA/HoekaGataAlgo.mq5` | Reads the indicator's signal and executes market orders. |
+| EA | `Main/MQL5/Experts/HokaGATA_Algo/HoekaGataAlgo.mq5` | Reads the indicator's signal and executes market orders. |
 
 The indicator is a **1:1 port of the Pine script in `Source/`**. Pine is the single source of
 truth — when Pine and MQL5 disagree, MQL5 is wrong.
@@ -260,7 +260,7 @@ Main/MQL5/Indicators/HokaGATA/
   Includes/HoekaGataIndicator_Drawing.mqh    <- lines/labels, time mapping, prob formatting
   Includes/HoekaGataIndicator_Panel.mqh      <- 14-row stats panel
 
-Main/MQL5/Experts/HokaGATA/
+Main/MQL5/Experts/HokaGATA_Algo/
   HoekaGataAlgo.mq5                          <- inputs, globals, event handlers
   Includes/HoekaGataAlgo_Config.mqh          <- panel config persistence + parsing helpers
   Includes/HoekaGataAlgo_Trading.mqh         <- signal read, order execution, risk

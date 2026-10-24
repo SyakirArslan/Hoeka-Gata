@@ -4,7 +4,7 @@ EA ini mengeksekusi signal dari indikator `HoekaGataIndicator` (Engulfing Breako
 mendeteksi pola sendiri: arah, entry, SL, dan TP sepenuhnya berasal dari indikator. Tugas EA adalah
 menyaring signal dengan aturan risk, lalu mengirim order pasar.
 
-- **File utama:** `Main/MQL5/Experts/HokaGATA/HoekaGataAlgo.mq5`
+- **File utama:** `Main/MQL5/Experts/HokaGATA_Algo/HoekaGataAlgo.mq5`
 - **Include:** `Includes/HoekaGataAlgo_Config.mqh`, `_Trading.mqh`, `_Panel.mqh`
 - **Indikator acuan:** `#property tester_indicator "HokaGATA\HoekaGataIndicator.ex5"`
 - **Prefix objek panel:** `HGCP_`

@@ -55,7 +55,7 @@ $Programs = @{
     }
     EA        = @{
         Name = 'HoekaGataAlgo'
-        Dir  = 'Experts\HokaGATA'
+        Dir  = 'Experts\HokaGATA_Algo'
         File = 'HoekaGataAlgo.mq5'
     }
     RiskPanel = @{

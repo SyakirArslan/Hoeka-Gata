@@ -725,7 +725,7 @@ Hal-hal yang paling mudah salah dibaca atau salah dipakai, semuanya terverifikas
 
 ## Bandingkan dengan sizing EA HoekaGATA
 
-EA memakai rumus sendiri di `Main/MQL5/Experts/HokaGATA/Includes/HoekaGataAlgo_Trading.mqh:467`
+EA memakai rumus sendiri di `Main/MQL5/Experts/HokaGATA_Algo/Includes/HoekaGataAlgo_Trading.mqh:467`
 (`CalculateRiskLot`), bukan folder ini:
 
 ```text
