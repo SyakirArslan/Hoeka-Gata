@@ -23,7 +23,8 @@ sumber aturan sekaligus alat validasi visual.
 | Animasi alur pending → fill/cancel (HTML) | `Main/Docs/entry-animation.html` | Replay modus intrabar: pending dan alert arm/fill terbit saat candle S berjalan (skenario fill dan cancel), plus panel dan log alert |
 | Build & deploy otomatis | `Main/Tools/Build-MT5.ps1` | [`Docs/Indicator_MT5.md`](Docs/Indicator_MT5.md#build-dan-deploy) |
 | AI skill (build & MT5) | `.claude/skills/hoekagata-build/SKILL.md`, `.claude/skills/hoekagata-mt5/SKILL.md` | Alur compile/deploy otomatis untuk agent |
-| Position Sizer (pihak ketiga) | `Main/MQL5/RiskCalculator/` | Utility risk calculator, bukan bagian signal engine |
+| Position Sizer (pihak ketiga) | `Main/MQL5/RiskCalculator/` | Utility risk calculator, bukan bagian signal engine — analisa: [`Docs/RiskCalculator.md`](Docs/RiskCalculator.md), mockup panel: [`Main/Docs/position-sizer-panel.html`](Main/Docs/position-sizer-panel.html) |
+| ~~Risk Calculator (EA kita)~~ | ~~`Main/MQL5/Experts/HokaGATA RiskCalc/`~~ | **DIHAPUS 2026-10-24.** EA `HoekaGataRiskCalculator` dihapus dan tidak pernah di-commit, jadi tidak bisa dipulihkan lewat git. Sisa desainnya: [`Docs/RiskCalculator_EA.md`](Docs/RiskCalculator_EA.md) (arsip) + [`Main/Docs/mix-risk-panel.html`](Main/Docs/mix-risk-panel.html) |
 
 ## PENTING: dua file Pine, beda kelengkapan
 
@@ -201,6 +202,16 @@ handle `iCustom`. Detail lengkap: [`Docs/Indicator_MT5.md`](Docs/Indicator_MT5.m
   dengan MQL5, tetapi deteksi pola, state machine, drawing, dan alert belum diisi.
 - `Main/MQL5/RiskCalculator/` adalah Position Sizer pihak ketiga; tidak dipakai oleh indikator
   maupun EA.
+- EA `HoekaGataRiskCalculator` (`Experts\HokaGATA RiskCalc`) sudah **dihapus**. Source di repo sudah
+  tidak ada, jadi bila namanya masih muncul di Navigator MT5, sisa file di folder data terminal belum
+  dibersihkan. Hapus manual:
+  1. Tutup MT5, lalu hapus `MQL5\Experts\HokaGATA RiskCalc\` di folder data terminal
+     (**File → Open Data Folder**).
+  2. Hapus baris `HoekaGataRiskCalculator ...=` di `config\terminal.ini` (bagian
+     `[IndicatorPropertyPage]`) selama MT5 masih tertutup.
+  3. Buka MT5 lagi dan refresh Navigator (klik kanan → **Refresh**).
+  Nama `HokaGATA Risk Calculator` (dengan spasi) adalah **Position Sizer pihak ketiga**, bukan EA ini;
+  jangan dihapus kalau masih dipakai.
 
 ## Dokumentasi
 
@@ -210,6 +221,12 @@ handle `iCustom`. Detail lengkap: [`Docs/Indicator_MT5.md`](Docs/Indicator_MT5.m
   panel kontrol, dan troubleshooting.
 - [`Docs/TradingView.md`](Docs/TradingView.md) — kedua script Pine: aturan, input, panel, alert, dan
   perbandingan dengan implementasi MT5.
+- [`Docs/RiskCalculator.md`](Docs/RiskCalculator.md) — analisa logic & algoritma Position Sizer
+  pihak ketiga: alur kalkulasi lot, rumus risiko/komisi/margin, temuan, dan perbandingan dengan
+  sizing EA HoekaGATA.
+- [`Main/Docs/position-sizer-panel.html`](Main/Docs/position-sizer-panel.html) — mockup visual panel
+  Position Sizer (5 tab, geometri 350/500 × 570 px, tema light/dark) plus tabel baris ↔ baris kode,
+  dipakai sebagai bahan penyesuaian sebelum panel risiko HoekaGATA dibuat.
 
 ## Kredit
 

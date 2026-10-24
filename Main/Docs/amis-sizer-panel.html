@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Position Sizer &mdash; reskin AMIS (desain UI, fungsi tidak berubah)</title>
+<style>
+/* ==========================================================================
+   Position Sizer 3.16d  ->  tampilan AMIS Risk Panel
+   DESAIN UI SAJA. Daftar kontrol, perilaku, dan nilai pada file ini HARUS
+   identik dengan Main/Docs/position-sizer-panel.html (sumber kebenaran).
+   Tidak ada fitur yang ditambah, digabung, atau dihapus.
+
+   Palet & komponen: Main/Docs/amis-risk-panel-reskin.html
+   Grid asli:        Main/Docs/position-sizer-panel.html (§3 geometri)
+   ========================================================================== */
+
+:root{
+  /* ---- geometri panel (1:1 dengan konstanta MQL5 di §6) ---- */
+  --w:              360px;  /* W            = PANEL_W (narrow); wide = 500 */
+  --pad-x:           14px;  /* PAD_X        = PANEL_PAD_X   */
+  --pad-t:           12px;  /* PAD_TOP                                     */
+  --pad-b:           12px;  /* PAD_BOTTOM                                  */
+  --title-h:         30px;  /* TITLE_H  (2 baris: 15 + 2 + 12)              */
+  --card-gap:        10px;  /* CARD_GAP     = PANEL_TITLE_GAP              */
+  --card-pad:         8px;  /* CARD_PAD     (8, bukan 14: PS punya 21 baris) */
+  --sec-h:           18px;  /* SEC_H        judul kartu (uppercase)        */
+  --sec-gap:          4px;  /* SEC_GAP                                     */
+  --row-h:           24px;  /* ROW_H        (PS 20 + 4)                    */
+  --row-gap:          2px;  /* ROW_GAP                                     */
+  --card-gap-in:      6px;  /* CARD_GAP_IN  antar kartu dalam panel        */
+  --pill-h:          22px;  /* PILL_H                                      */
+  --pill-w:         118px;  /* PILL_W                                      */
+  --btn-h:           22px;  /* BTN_H  (+, -, SA, Max, Tab)                 */
+  --seg-h:           22px;  /* SEG_H                                       */
+  --tab-h:           26px;  /* TAB_H                                       */
+  --foot-h:          54px;  /* FOOT_H tombol Trade (AMIS PANEL_BUTTON_H)   */
+  --foot-gap:        10px;  /* FOOT_GAP                                    */
+
+  /* ---- palet: sama dengan amis-risk-panel-reskin.html ---- */
+  --bg:          #10151c;
+  --line:        #2a3441;
+  --text:        #e6ebf1;
+  --label:       #d3dae3;
+  --muted:       #8a97a6;
+  --teal:        #2ec4b6;
+  --green:       #26a69a;
+  --red:         #e5484d;
+  --amber:       #e0a02a;
+  --bg-card:     #1a2029;
+  --line-card:   #262e39;
+  --line-pill:   #3b4655;
+  --seg-on:      #34363c;
+  --budget-red:  #f65b5f;
+  --buy-btn:     #0f7a55;
+  --sell-btn:    #b3262c;
+  --field:       #0e131a;  /* isian: cekung, bukan lebih terang */
+  --field-ro:    #151b23;
+  --div:         #2b333f;
+
+  /* ---- bingkai dokumen (bukan bagian panel) ---- */
+  --doc-bg:      #0f1419;
+  --doc-fg:      #c9d2dc;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:36px 44px 80px;background:var(--doc-bg);color:var(--doc-fg);
+  font:13px/1.55 "Segoe UI",Arial,Helvetica,sans-serif}
+h1{font-size:21px;margin:0 0 4px;color:#fff;font-weight:600;letter-spacing:.2px}
+h2{font-size:14px;margin:40px 0 10px;color:#fff;font-weight:600;letter-spacing:.4px;
+  text-transform:uppercase;border-bottom:1px solid #223040;padding-bottom:6px}
+h3{font-size:12.5px;margin:22px 0 6px;color:var(--teal);font-weight:600}
+p{margin:6px 0 10px;max-width:1100px}
+ul,ol{margin:6px 0 12px;padding-left:20px;max-width:1100px}
+li{margin:3px 0}
+code{font-family:Consolas,"Courier New",monospace;font-size:12px;background:#182029;
+  border:1px solid #223040;border-radius:3px;padding:1px 4px;color:#a8d8d4}
+a{color:var(--teal)}
+.lead{color:#93a1b0;max-width:1100px}
+.wrap{max-width:1280px}
+table.doc{border-collapse:collapse;width:100%;max-width:1120px;margin:10px 0 16px;font-size:12.5px}
+table.doc th{text-align:left;font-weight:600;color:#fff;background:#182029;
+  border:1px solid #24313f;padding:6px 9px;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+table.doc td{border:1px solid #1d2833;padding:5px 9px;vertical-align:top;color:#b9c4d0}
+table.doc tr:nth-child(even) td{background:#131a21}
+table.doc code{background:transparent;border:none;padding:0}
+table.doc tr.hl td{background:#17333a;color:#e6f4f2}
+.ok{color:var(--green);font-weight:600}
+.no{color:var(--red);font-weight:600}
+.warn2{color:var(--amber);font-weight:600}
+.mono{font-family:Consolas,"Courier New",monospace;font-size:12px}
+.note,.alert{max-width:1100px;margin:12px 0 18px;padding:10px 14px;border-left:3px solid var(--teal);
+  background:#131e26;border-radius:0 3px 3px 0;color:#a9b8c6;font-size:12.5px}
+.alert{border-left-color:var(--amber);background:#1e1a10}
+.note b,.alert b{color:#fff}
+
+/* ---------- stage + toolbar dokumen ---------- */
+.stage{position:relative;border:1px solid #223040;border-radius:6px;overflow:hidden;
+  background:#080a0d;min-height:780px}
+.stage-cap{position:absolute;left:0;right:0;top:0;height:22px;line-height:22px;padding:0 10px;
+  font-size:11px;color:#7d8b99;background:#0d1218;border-bottom:1px solid #1a222c;z-index:5}
+.stage-body{position:relative;height:756px;margin-top:22px}
+#candles{position:absolute;inset:0}
+#mount{position:absolute;left:14px;top:14px;z-index:4}
+#omount{position:absolute;right:14px;top:14px;z-index:3}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0}
+.bar .grp{display:flex;border:1px solid #2a3441;border-radius:6px;overflow:hidden}
+.bar button{background:#1a232d;color:#9aa8b6;border:0;border-right:1px solid #2a3441;
+  padding:6px 11px;font:12.5px "Segoe UI",sans-serif;cursor:pointer}
+.bar button:last-child{border-right:0}
+.bar button:hover{color:#d7e2ec}
+.bar button.on{background:#17333a;color:var(--teal);font-weight:600}
+.bar .lbl{font-size:12px;color:var(--muted);font-family:Consolas,monospace}
+
+/* ==========================================================================
+   PANEL  (1:1 dengan konstanta MQL5 di §6)
+   ========================================================================== */
+.panel{position:relative;width:var(--w);background:var(--bg);
+  box-shadow:inset 0 0 0 1px var(--line);font-family:Arial,Helvetica,sans-serif;
+  color:var(--text);user-select:none;font-size:9pt}
+.panel.wide{--w:500px}
+
+/* ---------- title bar = drag handle ----------
+   Mengikuti screenshot: kiri 2 baris (HoekaGata AMIS / AMIS Risk Panel),
+   kanan dot + SYMBOL + TF, lalu 2 tombol ikon persegi (gear, minimize). */
+.p-title{height:var(--title-h);margin:var(--pad-t) var(--pad-x) 0;display:flex;
+  align-items:center;justify-content:space-between;gap:8px;cursor:move}
+.p-title .left{display:flex;flex-direction:column;justify-content:center;min-width:0;
+  line-height:1}
+.p-title .l1{font-size:var(--font-title);font-weight:700;letter-spacing:.6px;color:#f5f7fa;
+  white-space:nowrap;line-height:15px}
+.p-title .l1 .amis{color:var(--teal);margin-left:4px}
+.p-title .l2{font-size:7.5pt;letter-spacing:.5px;color:#7d8b99;white-space:nowrap;
+  line-height:12px;margin-top:2px}
+.p-title .right{display:flex;align-items:center;gap:5px;flex:0 0 auto}
+.p-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--teal);
+  position:relative;top:-1px}
+.p-dot.stale{background:var(--amber)}
+.p-sym{font-size:var(--font-body);font-weight:700;letter-spacing:.3px;color:#f5f7fa}
+.p-tf{font-size:var(--font-small);color:var(--muted);letter-spacing:.3px}
+.p-ico{width:17px;height:17px;border:1px solid #3b4655;border-radius:3px;display:flex;
+  align-items:center;justify-content:center;font-size:9px;font-weight:400;color:#b9c4d0;
+  cursor:pointer;letter-spacing:0;line-height:1;margin-left:2px}
+.p-ico:hover{border-color:var(--teal);color:var(--teal)}
+
+/* ---------- tab strip (menggantikan 5 CButton tab PS) ---------- */
+.p-tabs{display:flex;margin:var(--card-gap) var(--pad-x) 0;height:var(--tab-h);
+  border:1px solid var(--line-pill);border-radius:calc(var(--tab-h)/2);overflow:hidden}
+.p-tab{flex:1 1 0;text-align:center;line-height:calc(var(--tab-h) - 2px);font-size:8pt;
+  letter-spacing:.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;white-space:nowrap}
+.p-tab+.p-tab{border-left:1px solid #2f3947}
+.p-tab.on{background:var(--seg-on);color:#fff;font-weight:700}
+.p-tab:hover{color:#dfe7ee}
+
+/* ---------- kartu ---------- */
+.p-card{margin:var(--card-gap-in) var(--pad-x) 0;padding:var(--card-pad);
+  background:var(--bg-card);box-shadow:inset 0 0 0 1px var(--line-card);border-radius:6px}
+.p-card.first{margin-top:var(--card-gap)}
+.p-sec{height:var(--sec-h);line-height:var(--sec-h);margin-bottom:var(--sec-gap);
+  font-size:8pt;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);
+  display:flex;justify-content:space-between;align-items:center}
+.p-sec b{color:var(--label);font-weight:700}
+.p-sec .tag{color:var(--teal);letter-spacing:.4px;text-transform:none;font-size:8pt}
+
+/* ---------- baris: label + kontrol ---------- */
+.p-row{height:var(--row-h);display:flex;align-items:center;justify-content:space-between;
+  gap:6px;margin-bottom:var(--row-gap);font-size:9pt;color:var(--label);line-height:var(--row-h)}
+.p-row.hl{background:#20303a;box-shadow:inset 0 0 0 1px var(--teal)}
+.p-row .k{flex:1 1 auto;color:var(--label);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.p-row .k.sm{font-size:8pt;color:var(--muted)}
+.p-row .k b{font-weight:700;color:var(--label)}
+.p-row .ctrls{display:flex;align-items:center;gap:3px;flex:0 0 auto}
+
+/* pill = padanan CEdit */
+.p-pill{height:var(--pill-h);line-height:calc(var(--pill-h) - 2px);padding:0 9px;
+  border:1px solid var(--line-pill);border-radius:calc(var(--pill-h)/2);
+  font-family:Consolas,"Courier New",monospace;font-size:10pt;color:var(--text);
+  background:var(--field);text-align:right;overflow:hidden;white-space:nowrap;
+  min-width:44px;cursor:text;flex:0 0 auto}
+.p-pill.l{text-align:left}
+.p-pill.ro{background:var(--field-ro);color:#c2cdd8;cursor:default;border-color:#313b49}
+.p-pill.ro.muted{color:var(--muted)}
+.p-pill.gain{color:var(--green)}
+.p-pill.loss{color:var(--red)}
+.p-pill.err{color:#f08f92;border-color:#5a2b31}
+.p-pill.w{width:var(--pill-w)}
+.p-pill.ws{width:86px}
+.p-pill.flex{flex:1 1 auto;min-width:0}
+
+/* tombol kecil (+, -, SA, Max, Hide, Abc) */
+.p-mb{height:var(--btn-h);min-width:18px;padding:0 5px;border:1px solid var(--line-pill);
+  border-radius:4px;background:#232c37;color:var(--label);font:11px/1 Arial,sans-serif;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;white-space:nowrap;
+  flex:0 0 auto}
+.p-mb:hover{border-color:var(--teal);color:#fff}
+.p-mb.on{background:#1d3a40;border-color:#2b5c63;color:var(--teal);font-weight:700}
+.p-step{display:flex;flex-direction:column;gap:1px;height:var(--pill-h);flex:0 0 auto}
+.p-step .p-mb{height:10.5px;min-width:18px;font-size:9px;line-height:8px;padding:0;
+  border-radius:2px}
+
+/* segmented = padanan CHorizontalRadioGroup */
+.p-seg{display:flex;height:var(--seg-h);border:1px solid var(--line-pill);
+  border-radius:calc(var(--seg-h)/2);overflow:hidden;flex:0 0 auto}
+.p-seg .b{flex:1 1 0;text-align:center;line-height:calc(var(--seg-h) - 2px);
+  font-size:8pt;color:var(--muted);cursor:pointer;padding:0 9px;white-space:nowrap}
+.p-seg .b.on{background:var(--seg-on);color:#fff;font-weight:700}
+.p-seg .b:hover{color:#dfe7ee}
+
+/* toggle = padanan CCheckBox */
+.p-chk{display:flex;align-items:center;gap:8px;cursor:pointer;min-width:0;flex:1 1 auto}
+.p-chk .box{width:15px;height:15px;border:1px solid var(--line-pill);border-radius:3px;
+  background:var(--field);display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:transparent;flex:0 0 auto;line-height:1}
+.p-chk.on .box{background:#1d3a40;border-color:var(--teal);color:var(--teal)}
+.p-chk .t{font-size:9pt;color:var(--label);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+
+/* header kolom = padanan CLabel tebal */
+.p-head{display:flex;height:17px;align-items:center;margin-bottom:2px;font-size:8pt;
+  letter-spacing:.7px;text-transform:uppercase;color:var(--muted);line-height:17px}
+.p-head .c{flex:1 1 0;text-align:center}
+.p-head .c.first{text-align:left;flex:0 0 96px}
+
+.p-div{height:1px;background:var(--div);margin:6px 0 8px}
+.p-note{font-size:8.5pt;line-height:15px;color:var(--muted);margin-top:2px}
+
+/* ringkasan besar (RISK BUDGET / LOT SIZE) */
+.p-sum{display:flex;gap:10px;margin:2px 0 8px}
+.p-sum .col{flex:1 1 0;min-width:0}
+.p-cap{font-size:8pt;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);
+  line-height:12px}
+.p-big{font-size:17pt;font-weight:700;line-height:26px;color:#fff;
+  font-family:Arial,Helvetica,sans-serif;white-space:nowrap}
+.p-big.budget{color:var(--budget-red)}
+.p-big.teal{color:var(--teal)}
+.p-big.amber{color:var(--amber);font-size:14pt}
+.p-big.empty{color:var(--muted);font-weight:400}
+
+/* strip peringatan (fuse / validasi) */
+.p-banner{display:flex;gap:6px;font-size:8pt;line-height:15px;color:#f0c46a;margin-top:6px}
+.p-banner.blocker{color:#f08f92}
+.p-banner .ico{font-weight:700}
+.p-banner.hidden{display:none}
+
+/* ---------- footer: tombol Trade (menggantikan CButton Trade PS) ---------- */
+.p-foot{display:flex;gap:var(--foot-gap);padding:10px var(--pad-x) var(--pad-b)}
+.p-btn{flex:1 1 0;height:var(--foot-h);border-radius:6px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2px;color:#fff;cursor:pointer}
+.p-btn .t{font-size:13pt;font-weight:700;letter-spacing:1.6px;line-height:18px}
+.p-btn .s{font-size:8pt;letter-spacing:.2px;line-height:13px;opacity:.92}
+.p-btn.trade{background:#24435c}
+.p-btn.trade.on{background:var(--buy-btn)}
+.p-btn.sell{background:var(--sell-btn)}
+.p-btn.disabled{opacity:.32;filter:grayscale(.55);cursor:default}
+.p-foot2{display:flex;gap:6px;padding:0 var(--pad-x) var(--pad-b);margin-top:-6px}
+
+/* minimized: hanya judul */
+.panel[data-state="min"] .p-body,
+.panel[data-state="min"] .p-tabs,
+.panel[data-state="min"] .p-foot,
+.panel[data-state="min"] .p-foot2{display:none}
+
+/* padanan tombol di luar panel (OutsideTradeButton / OutsideCloseButtons) */
+.o-mount{display:flex;flex-direction:column;gap:6px}
+.o-btn{width:156px;height:30px;border-radius:6px;display:flex;align-items:center;
+  justify-content:center;font:11px Arial;letter-spacing:1.2px;font-weight:700;color:#fff;
+  background:#24435c;cursor:pointer}
+.o-btn.trade{background:var(--buy-btn)}
+.o-btn.close{background:#4a3b1f;color:#f0c46a}
+.o-lbl{font-size:10px;color:#7d8b99;text-align:right}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Position Sizer <span style="color:#2ec4b6">&rarr; AMIS</span> &mdash; desain UI</h1>
+<p class="lead">
+  <b>Yang berubah: tampilan saja.</b> Setiap kontrol pada
+  <code>position-sizer-panel.html</code> tetap ada di sini dengan label, nilai, urutan tab, dan
+  perilaku yang sama &mdash; hanya bentuknya diganti komponen AMIS (kartu, pill, segmented, toggle).
+  Tidak ada fitur yang ditambah, digabung, atau dihapus. Halaman ini <b>belum</b> menyentuh kode MQL5.
+</p>
+<div class="alert">
+  <b>Kenapa strukturnya berubah, bukan cuma warnanya.</b> Position Sizer asli dibangun dari
+  <code>CAppDialog</code> + kontrol standar MQL5 (21 baris &times; 24 px, kolom absolut 10/133/235).
+  AMIS memakai kartu, pill 22 px, dan segmented. Kalau kontrol PS dipaksa ke bentuk pill AMIS,
+  tiap baris jadi 24&ndash;28 px sehingga 21 baris tidak muat dalam 546 px. Karena itu panel ini
+  <b>dikelompokkan ke kartu + tab</b> dan melebar <b class="mono">360 px</b> (dari 350) supaya
+  label terpanjang tetap utuh. Jumlah kontrol dan fungsinya tidak berubah.
+</div>
+
+<h2>1. Panel di atas chart</h2>
+<p>Tombol di bawah mengubah mockup sesuai cabang kode yang sebenarnya. Semua kombinasi menghasilkan
+  daftar kontrol yang sama dengan <code>position-sizer-panel.html</code>.</p>
+
+<div class="bar">
+  <div class="grp" id="tabs"></div>
+  <div class="grp" id="opts">
+    <button data-opt="wide">Lebar: 360</button>
+    <button data-opt="sa">SA-SL/TP</button>
+    <button data-opt="order">Order</button>
+    <button data-opt="tp">TP</button>
+    <button data-opt="fuse">Fuses</button>
+    <button data-opt="maxp">Max params</button>
+    <button data-opt="outside">Outside</button>
+    <button data-opt="min">Minimize</button>
+  </div>
+  <span class="lbl" id="status"></span>
+</div>
+
+<div class="stage" id="stage">
+  <div class="stage-cap" id="stageCap"></div>
+  <div class="stage-body">
+    <div id="candles"></div>
+    <div id="mount"></div>
+    <div id="omount"></div>
+  </div>
+</div>
+<p class="lead" style="margin-top:10px">
+  Garis harga mengikuti default input <code>Position Sizer.mq5</code>: Entry
+  <b style="color:#4a90d9">biru</b>, SL <b style="color:#3ea97a">hijau</b>, TP
+  <b style="color:#d8a52a">goldenrod</b>, stop price ungu putus-putus. Warna garis <b>tidak</b>
+  ikut di-reskin: itu objek chart tersendiri, bukan bagian panel.
+</p>
+
+<h2>2. Pemetaan komponen &mdash; setiap kontrol PS, satu per satu</h2>
+<p>
+  Tabel ini <b>kontrak desain</b>: kolom pertama adalah kontrol pada
+  <code>position-sizer-panel.html</code>, kolom kedua bentuk AMIS-nya. Jumlah baris harus sama dengan
+  jumlah kontrol di mockup lama &mdash; dihitung otomatis di atas tabel. Arahkan kursor ke baris untuk
+  menyalakan kontrol yang bersangkutan di panel.
+</p>
+<div id="mapTable"></div>
+
+<h2>3. Geometri panel</h2>
+<div id="geoTable"></div>
+
+<h2>4. Catatan untuk implementasi MQL5</h2>
+<ul>
+  <li><b>Prefix objek.</b> Panel baru memakai <code>HGRP_</code> (lihat <code>AGENTS.md</code>);
+    jangan meniru <code>PS_</code> milik Position Sizer dan jangan memakai <code>HGP_</code>
+    (milik EA Algo).</li>
+  <li><b>Tidak ada <code>CAppDialog</code>.</b> Panel AMIS dibangun dari objek chart biasa
+    (<code>OBJ_RECTANGLE_LABEL</code> + <code>OBJ_LABEL</code> + <code>OBJ_EDIT</code> +
+    <code>OBJ_BUTTON</code>). Sudut membulat di HTML ini <b>tidak</b> bisa dibuat; di MT5 semua
+    sudut persegi. Yang dipertahankan: warna, ketebalan outline, tinggi, jarak.</li>
+  <li><b>Tombol <code>+</code> / <code>&minus;</code> tetap dua tombol.</b> Di PS keduanya
+    <code>CButton</code> terpisah dengan nama berbeda; jangan digabung jadi satu stepper supaya
+    handler klik tetap satu-ke-satu.</li>
+  <li><b>Segmented = radio group.</b> Setiap chip tetap event terpisah; nilai yang dikirim ke logika
+    sama dengan <code>CHorizontalRadioGroup</code> lama (indeks 0/1/2...).</li>
+  <li><b>Isian read-only jangan <code>OBJ_EDIT</code>.</b> Pakai <code>OBJ_LABEL</code> di dalam
+    bingkai <code>OBJ_RECTANGLE_LABEL</code>; <code>OBJ_EDIT</code> tetap bisa diklik user
+    walaupun read-only.</li>
+  <li><b>Jumlah baris tidak berkurang.</b> Yang berubah hanya pembungkus kartu. Kalau ada satu
+    kontrol hilang, itu regresi &mdash; bukan penyederhanaan.</li>
+</ul>
+</div>
+
+<script>
+/* ==========================================================================
+   DATA: disalin 1:1 dari Main/Docs/position-sizer-panel.html
+   (rowsMain / rowsRisk / rowsMargin / rowsSwaps / rowsTrading).
+   JANGAN ubah daftar barisnya di sini; sinkronkan dengan file lama.
+   Yang berbeda hanya bentuk keluaran HTML-nya (kartu AMIS, bukan grid absolut).
+   ========================================================================== */
+
+const V = {
+  entry:'3250.00', sl:'3245.00', slAdj:'3244.80', tp:'3260.00', tpAdj:'3260.20',
+  commission:'7.00', account:'10000.00', riskP:'1.00', riskPRes:'0.98',
+  riskM:'100.00', riskMRes:'97.66', reward:'200.00', rewardRes:'187.34',
+  rr:'2.00', rrRes:'1.92', ps:'0.19', margin:'617.50', usedMargin:'617.50',
+  freeMargin:'9382.50', maxPsByMargin:'31.08', leverage:'100'
+};
+
+const state = { tab:'main', wide:false, sa:false, tps:1, fuse:true, maxp:true,
+                order:'Instant', outside:false, min:false };
+
+/* ---------------- Tab MAIN (:669-921) ---------------- */
+function rowsMain() {
+  const out = [], G = {};
+  const R = (key, title, sec, tag) => {
+    G[key] = { key:key, sec:sec, tag:tag, rows:[] }; out.push(G[key]);
+  };
+  const P = (grp, key, label, ctrls, lblCls) =>
+    G[grp].rows.push({ key:key, label:label, ctrls:ctrls, lblCls:lblCls });
+
+  R('g_price', '', 'Price &amp; targets', 'MAIN');
+  P('g_price', 'entry', 'Entry', [
+      { t:'seg', items:['Long','Short'], active:0 },
+      { t:'pill', v:V.entry, cls:'w' }, { t:'step' }]);
+  P('g_price', 'sl', 'Stop-loss', [
+      { t:'pill', v:V.sl, cls:'w' }, { t:'step' }]
+      .concat(state.sa ? [{ t:'mb', v:'SA', on:true },
+                          { t:'pill', v:V.slAdj, cls:'ws ro gain' }] : []));
+  P('g_price', 'tp', 'Take-profit', [
+      { t:'mb', v:'TP ×' + state.tps }, { t:'pill', v:V.tp, cls:'w' }, { t:'step' }]
+      .concat(state.sa ? [{ t:'mb', v:'SA', on:true },
+                          { t:'pill', v:V.tpAdj, cls:'ws ro gain' }] : [])
+      .concat([{ t:'chk', v:'Lock', on:false }]));
+  for (let i = 2; i <= state.tps; i++) {
+    P('g_price', 'tp' + i, 'Take-profit ' + i, [
+      { t:'mb', v:'–' }, { t:'pill', v:(3250 + 8 * i).toFixed(2), cls:'w' }, { t:'step' }]);
+  }
+  if (state.order !== 'Instant') {
+    P('g_price', 'stopPrice', 'Stop price', [
+      { t:'pill', v:'3249.20', cls:'w' }, { t:'step' }]);
+  }
+  P('g_price', 'order', 'Order type', [
+      { t:'seg', items:['Instant','Pending','Stop Limit'],
+        active:['Instant','Pending','Stop Limit'].indexOf(state.order) },
+      { t:'mb', v:'Hide lines' }]);
+
+  R('g_calc', '', 'Calculation');
+  P('g_calc', 'commission', 'Commission', [
+      { t:'seg', items:['%','$'], active:0 },
+      { t:'pill', v:V.commission, cls:'w' }, { t:'lb', v:'*' }]);
+  P('g_calc', 'account', 'Account balance', [
+      { t:'pill', v:V.account, cls:'w' }, { t:'lb', v:'*' }]);
+  G.g_calc.rows.push({ key:'columns', head:['Input','Result'] });
+  P('g_calc', 'riskp', 'Risk', [
+      { t:'pill', v:V.riskP, cls:'ws' }, { t:'pill', v:V.riskPRes, cls:'ws ro' }]);
+  P('g_calc', 'riskm', 'Risk money', [
+      { t:'pill', v:V.riskM, cls:'ws' }, { t:'pill', v:V.riskMRes, cls:'ws ro' }]);
+  P('g_calc', 'reward', 'Reward money', [
+      { t:'pill', v:V.reward, cls:'ws' }, { t:'pill', v:V.rewardRes, cls:'ws ro' }]);
+  P('g_calc', 'rr', 'Reward/risk', [
+      { t:'pill', v:V.rr, cls:'ws' }, { t:'pill', v:V.rrRes, cls:'ws ro' }]);
+  P('g_calc', 'ps', 'Position size', [
+      { t:'mb', v:'Max' }, { t:'pill', v:V.ps, cls:'w' }]);
+
+  R('g_url', '', 'EarnForex', 'LINK');
+  G.g_url.rows.push({ key:'url', url:'EarnForex.com' });
+  return out;
+}
+
+/* ---------------- Tab RISK (:925-1027) ---------------- */
+function rowsRisk() {
+  const out = [], G = {};
+  const R = (key, sec, tag) => { G[key] = { key:key, sec:sec, tag:tag, rows:[] }; out.push(G[key]); };
+  const P = (grp, key, label, ctrls, lblCls) =>
+    G[grp].rows.push({ key:key, label:label, ctrls:ctrls, lblCls:lblCls });
+
+  R('g_port', 'Portfolio filter');
+  P('g_port', 'rgpOrders', 'Include orders',
+    [{ t:'seg', items:['All','Open','Pending'], active:0 }]);
+  P('g_port', 'rgpSymbols', 'Include symbols',
+    [{ t:'seg', items:['All','Current','Other'], active:0 }]);
+  P('g_port', 'rgpDirections', 'Include',
+    [{ t:'seg', items:['All','Buy','Sell'], active:0 }]);
+  G.g_port.rows.push({ key:'chkIgnoreSL',
+    ctrls:[{ t:'chk', v:'Ignore orders without stop-loss', on:false }] });
+  G.g_port.rows.push({ key:'chkIgnoreTP',
+    ctrls:[{ t:'chk', v:'Ignore orders without take-profit', on:false }] });
+
+  R('g_cur', 'Current portfolio');
+  G.g_cur.rows.push({ key:'curHeads', head:['Risk $','Risk %','Lots'] });
+  P('g_cur', 'cur', '', [
+    { t:'pill', v:'0.00', cls:'ws ro' }, { t:'pill', v:'0.00', cls:'ws ro' },
+    { t:'pill', v:'0.00', cls:'ws ro' }]);
+  G.g_cur.rows.push({ key:'curProfitHeads', head:['Reward $','Reward %','CRRR'] });
+  P('g_cur', 'curProfit', '', [
+    { t:'pill', v:'0.00', cls:'ws ro' }, { t:'pill', v:'0.00', cls:'ws ro' },
+    { t:'pill', v:'—', cls:'ws ro' }]);
+
+  R('g_pot', 'Potential portfolio');
+  G.g_pot.rows.push({ key:'potHeads', head:['Risk $','Risk %','Lots'] });
+  P('g_pot', 'pot', '', [
+    { t:'pill', v:V.riskMRes, cls:'ws ro' }, { t:'pill', v:V.riskPRes, cls:'ws ro' },
+    { t:'pill', v:V.ps, cls:'ws ro' }]);
+  G.g_pot.rows.push({ key:'potProfitHeads', head:['Reward $','Reward %','PRRR'] });
+  P('g_pot', 'potProfit', '', [
+    { t:'pill', v:V.rewardRes, cls:'ws ro' }, { t:'pill', v:'1.87', cls:'ws ro' },
+    { t:'pill', v:V.rrRes, cls:'ws ro' }]);
+  return out;
+}
+
+/* ---------------- Tab MARGIN (:1036-1105) ---------------- */
+function rowsMargin() {
+  const out = [], G = {};
+  const R = (key, sec, tag) => { G[key] = { key:key, sec:sec, tag:tag, rows:[] }; out.push(G[key]); };
+  const P = (grp, key, label, ctrls, lblCls) =>
+    G[grp].rows.push({ key:key, label:label, ctrls:ctrls, lblCls:lblCls });
+
+  R('g_mrg', 'Margin');
+  P('g_mrg', 'posMargin', 'Position margin', [{ t:'pill', v:V.margin, cls:'w ro' }]);
+  P('g_mrg', 'usedMargin', 'Future used margin', [{ t:'pill', v:V.usedMargin, cls:'w ro' }]);
+  P('g_mrg', 'freeMargin', 'Future free margin', [{ t:'pill', v:V.freeMargin, cls:'w ro' }]);
+
+  R('g_lev', 'Leverage');
+  G.g_lev.rows.push({ key:'lev', label:'Custom leverage',
+    ctrls:[{ t:'lb', v:'1:' }, { t:'pill', v:'', cls:'ws' },
+           { t:'lb', v:'(Account = 1:' + V.leverage + ')', cls:'lb sm' }] });
+  G.g_lev.rows.push({ key:'levSym', label:'',
+    ctrls:[{ t:'lb', v:'(Symbol = 1:' + V.leverage + ')', cls:'lb sm' }] });
+
+  R('g_max', 'Batas ukuran');
+  P('g_max', 'maxPs', 'Max position size by margin',
+    [{ t:'pill', v:V.maxPsByMargin, cls:'w ro' }]);
+  return out;
+}
+
+/* ---------------- Tab SWAPS (:1113-1176) ---------------- */
+function rowsSwaps() {
+  const out = [], G = {};
+  const R = (key, sec, tag) => { G[key] = { key:key, sec:sec, tag:tag, rows:[] }; out.push(G[key]); };
+  const P = (grp, key, label, ctrls, lblCls) =>
+    G[grp].rows.push({ key:key, label:label, ctrls:ctrls, lblCls:lblCls });
+
+  R('g_swp', 'Swap setting');
+  P('g_swp', 'swapType', 'Type', [{ t:'pill', v:'Points', cls:'w ro l' }]);
+  P('g_swp', 'swapTriple', 'Triple swap', [{ t:'pill', v:'Wednesday', cls:'w ro l' }]);
+
+  R('g_swv', 'Nilai swap per lot');
+  G.g_swv.rows.push({ key:'swapHeads', head:['Long','Short'] });
+  P('g_swv', 'swapNominal', 'Nominal', [
+    { t:'pill', v:'−10.50', cls:'ws ro loss' }, { t:'pill', v:'12.30', cls:'ws ro gain' }]);
+  P('g_swv', 'swapDaily', 'Daily', [
+    { t:'pill', v:'−10.50', cls:'ws ro loss' }, { t:'pill', v:'12.30', cls:'ws ro gain' },
+    { t:'lb', v:'per lot', cls:'lb sm' }]);
+  P('g_swv', 'swapDailyPS', '', [
+    { t:'pill', v:'−1.99', cls:'ws ro loss' }, { t:'pill', v:'2.34', cls:'ws ro gain' },
+    { t:'lb', v:'per PS', cls:'lb sm' }]);
+  P('g_swv', 'swapYearly', 'Yearly', [
+    { t:'pill', v:'−3 832.50', cls:'ws ro loss' }, { t:'pill', v:'4 489.50', cls:'ws ro gain' },
+    { t:'lb', v:'per lot', cls:'lb sm' }]);
+  P('g_swv', 'swapYearlyPS', '', [
+    { t:'pill', v:'−728.18', cls:'ws ro loss' }, { t:'pill', v:'853.01', cls:'ws ro gain' },
+    { t:'lb', v:'per PS', cls:'lb sm' }]);
+
+  R('g_swn', '', 'Catatan');
+  G.g_swn.rows.push({ key:'swapNote',
+    ctrls:[{ t:'lb', v:'Long = biaya (negatif), Short = kredit — contoh nilai.', cls:'lb sm' }] });
+  return out;
+}
+
+/* ---------------- Tab TRADING (:1187-1346) ---------------- */
+function rowsTrading() {
+  const out = [], G = {};
+  const R = (key, sec, tag) => { G[key] = { key:key, sec:sec, tag:tag, rows:[] }; out.push(G[key]); };
+  const P = (grp, key, label, ctrls, lblCls) =>
+    G[grp].rows.push({ key:key, label:label, ctrls:ctrls, lblCls:lblCls });
+  const ATOM = (grp, key, label, regs) =>
+    G[grp].rows.push({ key:key, label:label, regs:regs, atom:2 });
+
+  R('g_exec', 'Eksekusi', 'TRADING');
+  G.g_exec.rows.push({ key:'trade', trade:true });
+  P('g_exec', 'trail', 'Trailing stop', [
+      { t:'pill', v:'0', cls:'ws' }, { t:'lb', v:'Breakeven', cls:'lb sm' },
+      { t:'pill', v:'0', cls:'ws' }]);
+  P('g_exec', 'magic', 'Magic number', [
+      { t:'pill', v:'2022052714', cls:'w' }, { t:'lb', v:'Expiry', cls:'lb sm' },
+      { t:'pill', v:'30', cls:'ws' }, { t:'lb', v:'min.', cls:'lb sm' }]);
+  P('g_exec', 'comment', 'Order commentary', [
+      { t:'pill', v:'PS', cls:'w l' }, { t:'chk', v:'Auto-suffix', on:true }]);
+
+  if (state.maxp) {
+    R('g_lim', 'Batas (max parameters)');
+    ATOM('g_lim', 'maxTrades', 'Max # of trades', ['Total','Per symbol','0','0']);
+    ATOM('g_lim', 'maxVolume', 'Max volume', ['Total','Per symbol','0.00','0.00']);
+    ATOM('g_lim', 'maxRisk', 'Max risk', ['Total','Per symbol','0','0']);
+  }
+
+  R('g_share', 'Take-profit share');
+  G.g_share.rows.push({ key:'disableChk',
+    ctrls:[{ t:'chk', v:'Disable trading when lines are hidden', on:false }] });
+  G.g_share.rows.push({ key:'tpHead',
+    ctrls:[{ t:'lb', v:'TP', cls:'lb' }, { t:'mb', v:'↓' }, { t:'mb', v:'↑' },
+           { t:'mb', v:'Share' }] });
+  P('g_share', 'tp1', 'TP 1', [{ t:'pill', v:V.tp, cls:'w' }, { t:'pill', v:'100', cls:'ws' }]);
+  G.g_share.rows.push({ key:'tpPoints',
+    ctrls:[{ t:'lb', v:'Points', cls:'lb sm' }] });
+
+  if (state.fuse) {
+    R('g_fuse', 'Fuses');
+    P('g_fuse', 'maxSlip', 'Max slippage', [{ t:'pill', v:'10', cls:'w' }]);
+    P('g_fuse', 'maxSpread', 'Max spread', [{ t:'pill', v:'0', cls:'w' }]);
+    P('g_fuse', 'maxEsl', 'Max Entry/SL distance', [{ t:'pill', v:'0', cls:'w' }]);
+    P('g_fuse', 'minEsl', 'Min Entry/SL distance', [{ t:'pill', v:'0', cls:'w' }]);
+    P('g_fuse', 'maxRiskP', 'Max risk %', [{ t:'pill', v:'0', cls:'w' }]);
+  }
+
+  R('g_opt', 'Opsi order');
+  G.g_opt.rows.push({ key:'subPos',
+    ctrls:[{ t:'chk', v:'Subtract open positions volume', on:false }] });
+  G.g_opt.rows.push({ key:'subOrd',
+    ctrls:[{ t:'chk', v:'Subtract pending orders volume', on:false }] });
+  G.g_opt.rows.push({ key:'noSl',
+    ctrls:[{ t:'chk', v:'Do not apply stop-loss', on:false }] });
+  G.g_opt.rows.push({ key:'noTp',
+    ctrls:[{ t:'chk', v:'Do not apply take-profit', on:false }] });
+  G.g_opt.rows.push({ key:'confirmChk',
+    ctrls:[{ t:'chk', v:'Ask for confirmation', on:false }] });
+  return out;
+}
+
+const TABS = [['main','Main'],['risk','Risk'],['margin','Margin'],['swaps','Swaps'],['trading','Trading']];
+function rowsFor(tab) {
+  if (tab === 'risk') return rowsRisk();
+  if (tab === 'margin') return rowsMargin();
+  if (tab === 'swaps') return rowsSwaps();
+  if (tab === 'trading') return rowsTrading();
+  return rowsMain();
+}
+
+/* Nomor baris kode di Position Sizer.mqh per baris panel (dari file lama) */
+const CODE = {
+  entry:'L680 · B683 · E686 · 687-688', sl:'698/700 · E702 · 716-718', tp:'723/724 · E726 · 740-742',
+  order:'827-830', stopPrice:'781-785', commission:'834-837', account:'843-850', columns:'855-856',
+  riskp:'860-866', riskm:'874-876', reward:'882-886', rr:'894-896', ps:'904-906', url:'921',
+  rgpOrders:'932-933', rgpSymbols:'939-940', rgpDirections:'946-947', chkIgnoreSL:'951',
+  chkIgnoreTP:'955', curHeads:'959-961', cur:'965-974', curProfitHeads:'978-980',
+  curProfit:'984-992', potHeads:'996-998', pot:'1002-1011', potProfitHeads:'1015-1017', potProfit:'1021-1027',
+  posMargin:'1036-1037', usedMargin:'1043-1044', freeMargin:'1050-1051', lev:'1059-1061',
+  levSym:'1065', maxPs:'1069-1071',
+  swapType:'1113-1114', swapTriple:'1120-1121', swapHeads:'1127-1128', swapNominal:'1132-1134',
+  swapDaily:'1142-1145', swapDailyPS:'1153-1155', swapYearly:'1163-1166', swapYearlyPS:'1174-1176', swapNote:'—',
+  trade:'1187', trail:'1189-1192', magic:'1196-1200', comment:'1204-1206', maxTrades:'1212-1216',
+  maxVolume:'1220-1224', maxRisk:'1228-1232', disableChk:'1248', tpHead:'1255-1258', tp1:'1267-1269',
+  tpPoints:'1276', maxSlip:'1280-1281', maxSpread:'1285-1286', maxEsl:'1290-1291', minEsl:'1295-1296',
+  maxRiskP:'1300-1301', subPos:'1318', subOrd:'1319', noSl:'1323', noTp:'1324', confirmChk:'1346'
+};
+
+/* ==========================================================================
+   RENDER  (bentuk AMIS; isi baris datang dari rowsFor())
+   ========================================================================== */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function ctrlHTML(c) {
+  if (c.t === 'pill')
+    return '<div class="p-pill ' + (c.cls || '') + '">' + esc(c.v) + '</div>';
+  if (c.t === 'seg')
+    return '<div class="p-seg">' + c.items.map((s, i) =>
+      '<div class="b' + (i === c.active ? ' on' : '') + '">' + esc(s) + '</div>').join('') + '</div>';
+  if (c.t === 'chk')
+    return '<div class="p-chk' + (c.on ? ' on' : '') + '"><span class="box">✓</span>' +
+           '<span class="t">' + esc(c.v) + '</span></div>';
+  if (c.t === 'mb')
+    return '<div class="p-mb' + (c.on ? ' on' : '') + '">' + esc(c.v) + '</div>';
+  if (c.t === 'step')
+    return '<div class="p-step"><div class="p-mb">+</div><div class="p-mb">–</div></div>';
+  if (c.t === 'lb')
+    return '<span class="' + (c.cls === 'lb sm' ? 'k sm' : 'k') + '">' + esc(c.v) + '</span>';
+  return '';
+}
+
+function rowHTML(r) {
+  if (r.url)
+    return '<div class="p-row" data-rkey="' + r.key + '"><div class="k">' + esc(r.url) +
+           ' <span class="p-side" style="color:var(--teal)">&nearr;</span></div></div>';
+  if (r.trade)
+    return '<div class="p-row" data-rkey="trade" style="height:26px"></div>';
+  if (r.head)
+    return '<div class="p-head" data-rkey="' + r.key + '">' +
+           r.head.map((h, i) => '<div class="c' + (i === 0 ? ' first' : '') + '">' + esc(h) + '</div>').join('') +
+           '</div>';
+  if (r.regs) {                      // satu baris PS, dua atom (Total / Per symbol)
+    let h = '<div class="p-row" data-rkey="' + r.key + '">';
+    h += '<div class="k" style="flex:0 0 96px">' + esc(r.label) + '</div>';
+    for (let i = 0; i < r.atom; i++) {
+      h += '<div class="ctrls" style="flex:1 1 0;justify-content:flex-end">' +
+           '<span class="k sm">' + esc(r.regs[i * 2]) + '</span>' +
+           '<div class="p-pill ws">' + esc(r.regs[i * 2 + 1]) + '</div></div>';
+    }
+    return h + '</div>';
+  }
+  let h = '<div class="p-row" data-rkey="' + r.key + '">';
+  h += '<div class="k' + (r.lblCls === 'sm' ? ' sm' : '') + '">' + (r.label || '') + '</div>';
+  h += '<div class="ctrls">' + r.ctrls.map(ctrlHTML).join('') + '</div></div>';
+  return h;
+}
+
+function renderPanel() {
+  const groups = rowsFor(state.tab);
+  let h = '<div class="panel' + (state.wide ? ' wide' : '') + '" id="panel" data-state="' +
+          (state.min ? 'min' : 'open') + '">';
+
+  /* title bar — kiri 2 baris, kanan dot + symbol + TF + 2 ikon */
+  const sym = 'XAUUSD', tf = 'M15';
+  h += '<div class="p-title">' +
+         '<div class="left">' +
+           '<div class="l1">HoekaGata<span class="amis">AMIS</span></div>' +
+           '<div class="l2">AMIS Risk Panel</div>' +
+         '</div>' +
+         '<div class="right">' +
+           '<span class="p-dot' + (state.min ? '' : '') + '"></span>' +
+           '<span class="p-sym">' + sym + '</span>' +
+           '<span class="p-tf">' + tf + '</span>' +
+           '<span class="p-ico" title="Center panel">&#8982;</span>' +
+           '<span class="p-ico" id="btnMin" title="' +
+             (state.min ? 'Restore' : 'Minimize') + '">' + (state.min ? '□' : '&#8211;') + '</span>' +
+         '</div>' +
+       '</div>';
+
+  /* tab strip */
+  h += '<div class="p-tabs"><div class="p-tabs-inner" style="display:flex;flex:1 1 auto">' +
+       TABS.map(t => '<div class="p-tab' + (state.tab === t[0] ? ' on' : '') +
+                     '" data-tab="' + t[0] + '">' + t[1] + '</div>').join('') + '</div></div>';
+
+  /* kartu */
+  h += '<div class="p-body">';
+  groups.forEach((g, gi) => {
+    if (!g.rows.length) return;
+    h += '<div class="p-card' + (gi === 0 ? ' first' : '') + '">';
+    if (g.sec)
+      h += '<div class="p-sec"><b>' + g.sec + '</b>' +
+           (g.tag ? '<span class="tag">' + g.tag + '</span>' : '') + '</div>';
+    h += g.rows.map(rowHTML).join('');
+    h += '</div>';
+  });
+  h += '</div>';
+
+  /* footer */
+  const dir = state.order === 'Instant' ? 'BUY' : 'SELL';
+  h += '<div class="p-foot">' +
+       '<div class="p-btn ' + (dir === 'BUY' ? 'trade on' : 'sell') + '">' +
+         '<span class="t">' + (dir === 'BUY' ? 'LONG' : 'SHORT') + '</span>' +
+         '<span class="s">Trade ' + V.ps + ' lot</span></div>' +
+       '<div class="p-btn disabled"><span class="t">TRADE</span>' +
+         '<span class="s">' + (dir === 'BUY' ? 'SHORT dimmed' : 'LONG dimmed') + '</span></div>' +
+       '</div>';
+  h += '</div>';
+
+  const mount = document.getElementById('mount');
+  mount.innerHTML = h;
+  mount.querySelectorAll('[data-tab]').forEach(el => {
+    el.onclick = () => { state.tab = el.dataset.tab; sync(); };
+  });
+  const bm = document.getElementById('btnMin');
+  if (bm) bm.onclick = () => { state.min = !state.min; sync(); };
+
+  /* outside buttons */
+  document.getElementById('omount').innerHTML = state.outside
+    ? '<div class="o-mount"><div class="o-btn trade">BUY ' + V.ps + '</div>' +
+      '<div class="o-btn">SELL</div><div class="o-btn close">CLOSE ALL</div>' +
+      '<div class="o-lbl">OutsideTradeButton + OutsideCloseButtons</div></div>'
+    : '';
+
+  buildMap();
+}
+
+/* ==========================================================================
+   §2 tabel pemetaan: kontrol PS -> komponen AMIS -> kode sumber
+   ========================================================================== */
+function kindAMIS(r) {
+  if (r.head) return 'Header kolom (teks 8 pt)';
+  if (r.url) return 'Tautan';
+  if (r.trade) return 'Tombol Trade = footer panel (2 tombol 54 px)';
+  if (r.regs) return 'Pill ×2 + label kecil (atom ' + r.atom + ')';
+  return Array.from(new Set(r.ctrls.map(c =>
+    c.t === 'pill' ? 'Pill' : c.t === 'seg' ? 'Segmented' : c.t === 'chk' ? 'Toggle' :
+    c.t === 'mb' ? 'Tombol kecil' : c.t === 'step' ? 'Tombol +/–' : 'Teks'
+  ))).join(' + ');
+}
+
+function buildMap() {
+  let total = 0;
+  const body = [];
+  TABS.forEach(t => {
+    rowsFor(t[0]).forEach(g => g.rows.forEach(r => {
+      total++;
+      body.push({ tab:t[1], grp:g.sec || '—', key:r.key,
+                  lbl:r.label || (r.head ? r.head.join(' / ') : r.url || 'Tombol Trade'),
+                  amis:kindAMIS(r) });
+    }));
+  });
+  const host = document.getElementById('mapTable');
+  let h = '<p class="lead"><b>' + total + '</b> baris kontrol dihitung dari lima tab ' +
+          '(mockup lama: 59 baris termasuk header kolom &amp; tombol Trade). ' +
+          'Angka ini yang menjadi checklist implementasi MQL5.</p>';
+  h += '<table class="doc"><tr><th style="width:70px">Tab</th><th style="width:150px">Kartu</th>' +
+       '<th>Kontrol PS (nama baris)</th><th style="width:230px">Bentuk AMIS</th>' +
+       '<th style="width:130px">Kode</th></tr>';
+  body.forEach(b => {
+    h += '<tr data-rkey="' + b.key + '"><td>' + esc(b.tab) + '</td><td>' + esc(b.grp) + '</td>' +
+         '<td>' + esc(b.lbl) + ' <code>' + esc(b.key) + '</code></td>' +
+         '<td>' + esc(b.amis) + '</td><td><code>' + esc(CODE[b.key] || '—') + '</code></td></tr>';
+  });
+  host.innerHTML = h + '</table>';
+}
+
+/* ==========================================================================
+   §3 geometri
+   ========================================================================== */
+function buildGeoTable() {
+  const rows = [
+    ['Lebar panel', '350 px', '360 px', 'Pill AMIS + label terpanjang tidak muat di 350'],
+    ['Lebar mode wide', '500 px', '500 px', 'tidak berubah (akun > 2 desimal)'],
+    ['Pad kiri/kanan', '—', '14 px', 'PANEL_PAD_X (AMIS)'],
+    ['Judul panel', '22 px caption', '26 px', 'TITLE_H; teks 12 pt bold uppercase'],
+    ['Tab', '5 × 50 px, jarak 15 px', 'strip 26 px, 5 chip', 'Segmented; urutan tab sama'],
+    ['Tinggi baris', '20 px', '24 px', 'ROW_H (pill 22 + 2)'],
+    ['Jarak baris', '4 px', '2 px', 'ROW_GAP'],
+    ['Pill (padanan CEdit)', '85–125 px × 20 px', '118 / 86 px × 22 px', 'PILL_W / PILL_H'],
+    ['Tombol + / –', '19 px lebar', '18 × 22 (2 × 10.5)', 'dua tombol, bukan stepper'],
+    ['Segmented', '—', '22 px tinggi', 'padanan CHorizontalRadioGroup'],
+    ['Toggle', '13 px kotak, teks 11 px', '15 px kotak, teks 9 pt', 'padanan CCheckBox'],
+    ['Kartu', '—', 'padding 8 px, radius 6 (MT5: 0)', 'CARD_PAD / CARD_BORDER'],
+    ['Tombol Trade', 'CButton baris 1187', 'footer 2 × 54 px', 'FOOT_H = PANEL_BUTTON_H'],
+    ['Warna teks', '#000 di #f0f0f0 (light)', '#e6ebf1 di #10151c', 'PANEL_TEXT / PANEL_BG'],
+    ['Aksen', 'abu-abu #c8c8c8', 'teal #2ec4b6', 'PANEL_ACCENT'],
+    ['Isian read-only', '#dddddd di atas putih', '#151b23 (cekung)', 'tidak memakai DARKMODE_*']
+  ];
+  let h = '<table class="doc"><tr><th style="width:200px">Elemen</th><th style="width:190px">PS asli</th>' +
+          '<th style="width:190px">Desain AMIS</th><th>Catatan</th></tr>';
+  rows.forEach(r => { h += '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td><td>' +
+    esc(r[2]) + '</td><td>' + esc(r[3]) + '</td></tr>'; });
+  document.getElementById('geoTable').innerHTML = h + '</table>';
+}
+
+/* ==========================================================================
+   chart latar (sama dengan mockup lama)
+   ========================================================================== */
+function drawChart() {
+  const el = document.getElementById('candles');
+  const W = el.clientWidth || 1120, H = el.clientHeight || 736;
+  const pmin = 3242.5, pmax = 3262.5, rightPad = 62, leftPad = 54;
+  const yOf = p => H - ((p - pmin) / (pmax - pmin)) * H;
+  let h = '';
+  for (let p = 3245; p <= 3260; p += 2.5)
+    h += '<div style="position:absolute;left:0;right:0;top:' + yOf(p).toFixed(1) +
+         'px;height:1px;background:#1c1c1c"></div>';
+  let seed = 20250;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  const n = Math.max(24, Math.floor((W - leftPad - rightPad - 400) / 9));
+  const cw = 6;
+  let price = 3255.6;
+  for (let i = 0; i < n; i++) {
+    const o = price;
+    const c = o + (rnd() - 0.5) * 0.75 + (i > n * 0.55 ? -0.16 : 0.05);
+    const hi = Math.max(o, c) + rnd() * 0.3, lo = Math.min(o, c) - rnd() * 0.3;
+    price = c;
+    const x = leftPad + 400 + i * 9, col = c >= o ? '#4caf50' : '#ef5350';
+    const top = yOf(Math.max(o, c)), bot = yOf(Math.min(o, c));
+    h += '<div style="position:absolute;left:' + (x + cw / 2) + 'px;top:' + yOf(hi).toFixed(1) +
+         'px;height:' + (yOf(lo) - yOf(hi)).toFixed(1) + 'px;width:1px;background:' + col + '"></div>';
+    h += '<div style="position:absolute;left:' + x + 'px;top:' + top.toFixed(1) + 'px;height:' +
+         Math.max(1, bot - top).toFixed(1) + 'px;width:' + cw + 'px;background:' + col + '"></div>';
+  }
+  const levels = [
+    { n:'Entry', p:3250.00, col:'#4a90d9', tag:'' },
+    { n:'SL', p:3245.00, col:'#3ea97a', tag:'-500 poin' },
+    { n:'TP', p:3260.00, col:'#d8a52a', tag:'+1 000 poin' },
+    { n:'Stop', p:3249.20, col:'#b06ad0', tag:'pending saja' }
+  ];
+  levels.forEach(l => {
+    const y = yOf(l.p), lx = 380;
+    h += '<div style="position:absolute;left:0;right:' + rightPad + 'px;top:' + y.toFixed(1) +
+         'px;height:1px;background:' + l.col + '"></div>';
+    h += '<div style="position:absolute;left:' + lx + 'px;top:' + (y - 16).toFixed(1) +
+         'px;font:11px Tahoma;color:' + l.col + '">' + l.n + ': ' + l.p.toFixed(2) + '</div>';
+    if (l.tag) h += '<div style="position:absolute;left:' + (lx + 92) + 'px;top:' +
+         (y - 16).toFixed(1) + 'px;font:11px Tahoma;color:' + l.col + ';opacity:.75">' + l.tag + '</div>';
+    h += '<div style="position:absolute;left:' + (W - rightPad + 4) + 'px;top:' + (y - 8).toFixed(1) +
+         'px;font:11px Tahoma;background:' + l.col + ';color:#000;padding:0 3px;font-weight:700">' +
+         l.p.toFixed(2) + '</div>';
+  });
+  el.innerHTML = h;
+}
+
+/* ==========================================================================
+   toolbar + init
+   ========================================================================== */
+const OPTS = {
+  wide: () => { state.wide = !state.wide; },
+  sa: () => { state.sa = !state.sa; },
+  order: () => { state.order = state.order === 'Instant' ? 'Pending'
+                 : (state.order === 'Pending' ? 'Stop Limit' : 'Instant'); },
+  tp: () => { state.tps = state.tps >= 3 ? 1 : state.tps + 1; },
+  fuse: () => { state.fuse = !state.fuse; },
+  maxp: () => { state.maxp = !state.maxp; },
+  outside: () => { state.outside = !state.outside; },
+  min: () => { state.min = !state.min; }
+};
+
+function sync() {
+  const label = {
+    wide: 'Lebar: ' + (state.wide ? '500 (wide)' : '360'),
+    sa: 'SA-SL/TP: ' + (state.sa ? 'on' : 'off'),
+    order: 'Order: ' + state.order,
+    tp: 'TP: ' + state.tps,
+    fuse: 'Fuses: ' + (state.fuse ? 'on' : 'off'),
+    maxp: 'Max params: ' + (state.maxp ? 'on' : 'off'),
+    outside: 'Outside: ' + (state.outside ? 'on' : 'off'),
+    min: state.min ? 'Maximize' : 'Minimize'
+  };
+  document.querySelectorAll('#opts button').forEach(b => {
+    const o = b.dataset.opt;
+    b.textContent = label[o];
+    b.classList.toggle('on',
+      (o === 'wide' && state.wide) || (o === 'sa' && state.sa) || (o === 'tp' && state.tps > 1) ||
+      (o === 'order' && state.order !== 'Instant') || (o === 'fuse' && !state.fuse) ||
+      (o === 'maxp' && !state.maxp) || (o === 'outside' && state.outside) || (o === 'min' && state.min));
+  });
+  document.querySelectorAll('#tabs button').forEach(b =>
+    b.classList.toggle('on', b.dataset.tab === state.tab));
+  let rows = 0;
+  rowsFor(state.tab).forEach(g => { rows += g.rows.length; });
+  document.getElementById('status').textContent =
+    'Tab ' + state.tab + ' · ' + (state.wide ? 500 : 360) + ' px · ' + rows + ' baris';
+  document.getElementById('stageCap').textContent =
+    'XAUUSD · M15 - ' + state.order + ' · risiko ' + V.riskP + ' % · lot ' + V.ps +
+    (state.min ? ' - minimized' : '');
+  renderPanel();
+  drawChart();
+}
+
+(function init() {
+  const q = new URLSearchParams(location.search);
+  if (TABS.some(t => t[0] === q.get('tab'))) state.tab = q.get('tab');
+  if (q.get('wide') === '1') state.wide = true;
+  if (q.get('sa') === '1') state.sa = true;
+  if (q.get('order')) state.order = q.get('order');
+  if (q.get('tps')) state.tps = Math.min(3, Math.max(1, parseInt(q.get('tps'), 10) || 1));
+
+  const tabsHost = document.getElementById('tabs');
+  tabsHost.innerHTML = TABS.map(t => '<button data-tab="' + t[0] + '">' + t[1] + '</button>').join('');
+  tabsHost.querySelectorAll('button').forEach(b => {
+    b.onclick = () => { state.tab = b.dataset.tab; sync(); };
+  });
+  document.querySelectorAll('#opts button').forEach(b => {
+    b.onclick = () => { OPTS[b.dataset.opt](); sync(); };
+  });
+  document.addEventListener('mouseover', e => {
+    const tr = e.target.closest('tr[data-rkey]');
+    document.querySelectorAll('.p-row.hl').forEach(el => el.classList.remove('hl'));
+    if (!tr) return;
+    const target = document.querySelector('.p-row[data-rkey="' + tr.dataset.rkey + '"]');
+    if (target) target.classList.add('hl');
+  });
+  window.addEventListener('resize', drawChart);
+  buildGeoTable();
+  sync();
+})();
+</script>
+</body>
+</html>

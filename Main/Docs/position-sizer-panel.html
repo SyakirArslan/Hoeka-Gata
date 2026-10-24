@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Position Sizer 3.16d — mockup visual panel</title>
+<style>
+:root{
+  --bg:#0f1216; --fg:#e9edf1; --muted:#93a0ad; --line:#252b31; --card:#161b21;
+  --accent:#3ea97a; --blue:#4a90d9; --warn:#e0a137;
+  --ps-bg:#f0f0f0; --ps-cap:#48586a; --ps-cap-fg:#ffffff;
+  --ps-edit:#ffffff; --ps-edit-ro:#dddddd; --ps-edit-bd:#8b8b8b;
+  --ps-btn:#c8c8c8; --ps-btn-bd:#7d7d7d; --ps-tab:#bdbdbd; --ps-tab-on:#a9a9a9;
+  --ps-txt:#000000; --ps-hdr:#1f1f1f; --ps-sep:#c9c9c9;
+}
+body.ps-dark{
+  --ps-bg:#444444; --ps-edit:#aaaaaa; --ps-edit-ro:#999999; --ps-edit-bd:#888888;
+  --ps-btn:#a19999; --ps-btn-bd:#888888; --ps-tab:#8f8f8f; --ps-tab-on:#7d7474;
+  --ps-txt:#000000; --ps-hdr:#000000; --ps-sep:#5a5a5a;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.6 "Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+a{color:var(--blue)}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 64px}
+h1{font-size:22px;margin:0 0 6px}
+h2{font-size:17px;margin:36px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+h3{font-size:14px;margin:22px 0 8px;color:#cfe0ee}
+p{margin:8px 0}
+code,kbd{font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:12.5px;background:#1c2229;border:1px solid #2b333b;border-radius:4px;padding:1px 5px}
+.sub{color:var(--muted);margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0}
+.chip{font-size:12px;color:var(--muted);border:1px solid var(--line);background:var(--card);border-radius:999px;padding:3px 10px}
+.chip b{color:var(--fg);font-weight:600}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0}
+.bar .grp{display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.bar button{background:var(--card);color:var(--muted);border:0;border-right:1px solid var(--line);padding:7px 13px;font:13px "Segoe UI",sans-serif;cursor:pointer}
+.bar button:last-child{border-right:0}
+.bar button:hover{color:var(--fg)}
+.bar button.on{background:#1f6f4f;color:#fff}
+.bar .lbl{font-size:12px;color:var(--muted)}
+
+/* ---------- mock chart + panel ---------- */
+.stage{position:relative;height:640px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#000}
+.chart{position:absolute;inset:0}
+.gridline{stroke:#1c1c1c;stroke-width:1}
+.lvl{stroke-width:1}
+.lvl-label{font:11px Tahoma,"Segoe UI",sans-serif}
+.axis{font:10px Tahoma,"Segoe UI",sans-serif;fill:#9aa4ad}
+.ps-mount{position:absolute;left:12px;top:12px;z-index:3}
+
+/* ---------- the panel itself (1:1 numbers from CreateObjects) ---------- */
+.ps{position:relative;width:350px;height:570px;background:var(--ps-bg);border:1px solid #7a7a7a;box-shadow:0 10px 30px rgba(0,0,0,.55);font:11px/1 Tahoma,"Segoe UI",sans-serif;color:var(--ps-txt);user-select:none}
+.ps.wide{width:500px}
+.ps-cap{height:22px;display:flex;align-items:center;gap:6px;padding:0 4px 0 8px;background:var(--ps-cap);color:var(--ps-cap-fg);font-weight:700;font-size:11px;letter-spacing:.2px}
+.ps-cap .grow{flex:1}
+.ps-cap .ctl{display:flex;gap:3px}
+.ps-cap .ctl i{width:15px;height:15px;border:1px solid rgba(255,255,255,.45);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:10px;cursor:default}
+.ps-body{position:relative;height:546px;overflow:hidden}
+.ps-row{position:absolute;left:0;right:0;height:20px;transition:background .12s}
+.ps-row.hl{background:rgba(62,169,122,.22);outline:1px solid rgba(62,169,122,.55)}
+.c{position:absolute;height:20px;font:11px/18px Tahoma,"Segoe UI",sans-serif;color:var(--ps-txt);white-space:nowrap;overflow:hidden}
+.c.lbl{line-height:20px}
+.c.lbl.r{text-align:right}
+.c.edit{background:var(--ps-edit);border:1px solid var(--ps-edit-bd);line-height:18px;text-align:right;padding:0 4px}
+.c.edit.ro{background:var(--ps-edit-ro)}
+.c.edit.l{text-align:left}
+.c.btn{background:var(--ps-btn);border:1px solid var(--ps-btn-bd);line-height:18px;text-align:center;cursor:pointer;overflow:hidden}
+.c.btn.press{background:var(--ps-tab-on)}
+.c.btn.mini{line-height:8px;font-size:10px}
+.c.tab{background:var(--ps-tab);border:1px solid var(--ps-btn-bd);line-height:18px;text-align:center;cursor:pointer}
+.c.tab.on{background:var(--ps-tab-on);font-weight:700}
+.c.hdr{font-weight:700;line-height:20px;color:var(--ps-hdr)}
+.c.chk{padding-left:22px;line-height:20px;position:relative}
+.c.chk::before{content:"";position:absolute;left:2px;top:3px;width:13px;height:13px;background:var(--ps-edit);border:1px solid var(--ps-edit-bd)}
+.c.chk.on::before{content:"✓";font:10px/13px Tahoma;text-align:center;color:#1a7f37}
+.c.rgp{display:flex;align-items:center;line-height:20px}
+.c.rgp span{margin-right:14px;position:relative;padding-left:17px;white-space:nowrap}
+.c.rgp span::before{content:"";position:absolute;left:0;top:4px;width:11px;height:11px;border:1px solid var(--ps-edit-bd);border-radius:50%;background:var(--ps-edit)}
+.c.rgp span.on::before{box-shadow:inset 0 0 0 2px var(--ps-edit);background:#2a6fb0}
+.c.sep{position:absolute;height:1px;background:var(--ps-sep)}
+.c.warn{color:#b3261e;font-size:10px;line-height:20px}
+.c.url{color:#1a4fa0;text-decoration:underline;font-size:10px;line-height:20px;cursor:pointer}
+.c.spread{color:#008000;font-weight:700}
+.c.mini{height:10px;line-height:9px;font-size:9px;padding:0}
+/* --- tabel --- */
+.tbl{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0 4px}
+.tbl th{text-align:left;font-weight:600;color:var(--muted);font-size:11.5px;letter-spacing:.04em;
+  text-transform:uppercase;border-bottom:1px solid var(--line);padding:7px 8px}
+.tbl td{border-bottom:1px solid #1b2127;padding:5px 8px;vertical-align:top}
+.tbl tbody tr:hover{background:#151b21}
+.tbl td code{background:transparent;border:0;padding:0;color:#9fd6bb}
+.ps-note{position:absolute;right:8px;bottom:6px;font:10px Tahoma;color:#777}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Position Sizer 3.16d — seperti apa visualnya</h1>
+    <p class="sub">Rekonstruksi panel dari kode sumber: geometri, teks, dan warna diambil langsung dari
+      <code>Position Sizer.mqh</code> (<code>CreateObjects()</code> :567–1362) dan
+      <code>Translations/English.mqh</code>. Angka di dalam panel memakai contoh XAUUSD dari
+      <a href="../../Docs/RiskCalculator.md">Docs/RiskCalculator.md</a>.</p>
+    <div class="chips">
+      <span class="chip">Panel <b>350 × 570 px</b> (narrow)</span>
+      <span class="chip">Baris <b>20 px</b>, jarak <b>4 px</b></span>
+      <span class="chip">Kolom <b>10 / 133 / 235</b></span>
+      <span class="chip">5 tab: <b>Main · Risk · Margin · Swaps · Trading</b></span>
+      <span class="chip">Judul jendela <b>“Position Sizer (ver. 3.16d)”</b></span>
+    </div>
+  </header>
+
+  <h2 id="scene">1. Panel di atas chart</h2>
+  <p class="sub">Tema, tab, dan opsi di bawah ini mengubah mockup sesuai cabang kode yang sebenarnya
+    (lebar 350 vs 500, tombol SA-SL/SA-TP, jumlah TP, dan fuse di tab Trading).</p>
+
+  <div class="bar">
+    <div class="grp" id="tabs"></div>
+  </div>
+  <div class="bar">
+    <div class="grp" id="opts">
+      <button data-opt="theme">Tema: light</button>
+      <button data-opt="wide">Lebar: 350 (narrow)</button>
+      <button data-opt="sa">SA-SL/TP: off</button>
+      <button data-opt="order">Order: Instant</button>
+      <button data-opt="tp">TP: 1</button>
+      <button data-opt="fuse">Fuses: on</button>
+      <button data-opt="maxp">Max params: on</button>
+    </div>
+    <span class="lbl" id="status"></span>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="chart" id="chart"></div>
+    <div class="ps-mount" id="mount"></div>
+  </div>
+
+  <p class="sub" style="margin-top:10px">
+    Garis mengikuti default input <code>Position Sizer.mq5</code>: Entry <b style="color:#4a90d9">biru</b>
+    (<code>clrBlue</code>), Stop-Loss <b style="color:#3ea97a">hijau</b> (<code>clrGreen</code>),
+    Take-Profit <b style="color:#d8a52a">goldenrod</b>, semuanya <code>STYLE_SOLID</code> tebal 1 px;
+    Stop price ungu <code>STYLE_DOT</code>. Label harga ada di kiri (<code>CORNER_LEFT_UPPER</code>),
+    label tambahan memuat poin/uang.<br>
+    Catatan mockup: panel ditaruh di posisi default (<code>CORNER_LEFT_UPPER</code>, X=0 Y=15) sehingga
+    label harga digambar agak ke kanan agar tidak tertutup; skala harga, jumlah candle, dan waktu
+    hanya ilustrasi.</p>
+
+  <h2 id="anatomi">2. Anatomi tiap baris (baris ↔ kode)</h2>
+  <p class="sub">Arahkan kursor ke tabel: baris yang bersangkutan menyala di panel.
+    Kolom <b>Baris kode</b> memakai nomor di <code>Position Sizer.mqh</code>.</p>
+  <div id="anatomy"></div>
+
+  <h2 id="geo">3. Spesifikasi geometri</h2>
+  <div id="geoTable"></div>
+
+  <h2 id="catatan">4. Catatan untuk penyesuaian</h2>
+  <ul>
+    <li><b>Prefix objek.</b> Semua objek memakai <code>ObjectPrefix</code> (default <code>PS_</code>),
+      termasuk nama kontrol dialog (<code>PS_m_EdtSL</code>, …).</li>
+    <li><b>Tidak bisa di-reskin bebas.</b> Panel dibangun dari <code>CAppDialog</code> +
+      <code>CButton</code>/<code>CEdit</code>/<code>CLabel</code>/<code>CCheckBox</code> standar MQL5,
+      jadi tampilan mengikuti tema terminal; hanya warna edit/butang yang bisa diubah lewat
+      <code>DARKMODE_*</code> dan <code>LongButtonColor</code> / <code>ShortButtonColor</code> /
+      <code>TradeButtonColor</code>.</li>
+    <li><b>Panel HoekaGATA harus beda prefix.</b> Sesuai <code>AGENTS.md</code>, panel risiko baru
+      memakai <code>HGRP_</code>; indikator memakai <code>HoekaGATA_Engulf_*</code> dan EA
+      <code>HGP_</code>. Jangan meniru <code>PS_</code>.</li>
+    <li><b>Lebar 350 px vs panel AMIS 300 px.</b> Grid Position Sizer (kolom 10/133/235) tidak muat di
+      300 px; desain AMIS memakai kolom sendiri (lihat <code>Main/Docs/amis-risk-panel.html</code>).</li>
+    <li><b>Dark mode-nya bermasalah.</b> <code>DARKMODE_TEXT_COLOR = 0x000000</code> dipakai untuk
+      label di background <code>0x444444</code> (mis. <code>Position Sizer.mqh:4028</code>,
+      <code>:4107</code>), jadi teks nyaris tidak terbaca. Kalau panel HoekaGATA memakai tema gelap,
+      pakai teks terang — jangan meniru konstanta ini.</li>
+    <li><b>Tab Trading paling padat.</b> 21 baris × 24 px = 504 px: hanya sisa ~24 px dari tinggi
+      klien 546 px. Menambah satu baris berarti harus mengurangi baris lain atau memperbesar panel.</li>
+    <li><b>Deep link untuk diskusi.</b> Mockup bisa dibuka langsung ke kondisi tertentu:
+      <code>?tab=trading</code>, <code>&amp;dark=1</code>, <code>&amp;wide=1</code>,
+      <code>&amp;sa=1</code>, <code>&amp;tps=3</code>, <code>&amp;order=Pending</code>.</li>
+  </ul>
+</div>
+<script>
+/* Geometri mentah dari Position Sizer.mqh -> CreateObjects() :575-657 */
+const COMMON = { rowStart:10, elH:20, vSp:4, hSp:5, captionH:22, panelH:570,
+                 tabStart:15, tabW:50, labelW:108, narrowLabelW:85, narrowestW:50,
+                 editW:85, narrowEditW:75, wideEditW:170, wideLabelW:193,
+                 quickW:32, leverageW:35, riskPercW:65, multiTpLabelW:70,
+                 includeSymbolsW:95 };
+
+const MODES = {
+  narrow: { width:350, tabSp:15, normalEdit:85, riskPerc:65, swapLast:80, swapSizeEdit:75,
+            atrLabel:72, atrEdit:36, quickOffset:50, riskLot:50,
+            c2:133, c2r:124, c2m:148, c3:235, c3r:213, c2s:65, c3s:145, c4r:282, c4s:225,
+            maxPs:238, multiTpBtn:164, panelEnd:320 },
+  wide:   { width:500, tabSp:50, normalEdit:125, riskPerc:85, swapLast:100, swapSizeEdit:125,
+            atrLabel:78, atrEdit:70, quickOffset:90, riskLot:125,
+            c2:173, c2r:132, c2m:188, c3:355, c3r:265, c2s:65, c3s:195, c4r:358, c4s:325,
+            maxPs:223, multiTpBtn:243, panelEnd:440 }
+};
+
+const state = { tab:'main', dark:false, wide:false, sa:false, tps:1, fuse:true, maxp:true, order:'Instant' };
+const G = () => Object.assign({}, COMMON, state.wide ? MODES.wide : MODES.narrow);
+
+const cell = (cls, x, w, text, o) => Object.assign({ cls, x, w, text }, o || {});
+const L = (x, w, text, o) => cell('c lbl' + (o && o.r ? ' r' : ''), x, w, text, o);
+const E = (x, w, text, o) => cell('c edit' + (o && o.ro ? ' ro' : '') + (o && o.left ? ' l' : ''), x, w, text, o);
+const B = (x, w, text, o) => cell('c btn' + (o && o.mini ? ' mini' : '') + (o && o.press ? ' press' : ''), x, w, text, o);
+const T = (x, w, text, on) => cell('c tab' + (on ? ' on' : ''), x, w, text);
+const C = (x, w, text, on) => cell('c chk' + (on ? ' on' : ''), x, w, text);
+const H = (x, w, text) => cell('c hdr', x, w, text);
+const R = (x, w, items, active) => cell('c rgp', x, w, items, { items, active });
+const WA = (x, w, text) => cell('c warn', x, w, text);
+
+/* Nilai contoh (XAUUSD): balance 10 000, risk 1 %, SL 500 poin, TP 1 000 poin, komisi 7/lot */
+const V = {
+  entry:'3250.00', sl:'3245.00', slAdj:'3244.80', tp:'3260.00', tpAdj:'3260.20',
+  commission:'7.00', account:'10000.00', riskP:'1.00', riskPRes:'0.98',
+  riskM:'100.00', riskMRes:'97.66', reward:'200.00', rewardRes:'187.34',
+  rr:'2.00', rrRes:'1.92', ps:'0.19', margin:'617.50', usedMargin:'617.50',
+  freeMargin:'9382.50', maxPsByMargin:'31.08', leverage:'100'
+};
+/* ---------------- Tab MAIN (:669-921) ---------------- */
+function rowsMain() {
+  const g = G(), out = [], start = g.rowStart + g.elH + 3 * g.vSp;
+  let y = start;
+  const next = () => { y += g.elH + g.vSp; };
+  const P = (k, c) => out.push({ key: k, y, cells: c });
+  const c1 = g.hSp * 2;
+
+  P('entry', [
+    L(c1, g.narrowestW, 'Entry:'),
+    B(c1 + g.narrowestW + g.vSp, g.c2 - g.vSp - (c1 + g.narrowestW + g.vSp), 'Long'),
+    E(g.c2, g.normalEdit, V.entry),
+    B(g.c2 + g.normalEdit + 1, 19, '+', { mini:true }),
+    B(g.c2 + g.normalEdit + 1, 19, '–', { mini:true, dy:10 })
+  ]); next();
+
+  const sl = [
+    B(c1, g.labelW, 'Stop-loss:'),
+    E(g.c2, g.normalEdit, V.sl),
+    B(g.c2 + g.normalEdit + 1, 19, '+', { mini:true }),
+    B(g.c2 + g.normalEdit + 1, 19, '–', { mini:true, dy:10 })
+  ];
+  if (state.sa) sl.push(B(g.c2 + g.normalEdit + 22, 20, 'SA', { press:true }),
+                        E(g.c2 + g.normalEdit + 44, 60, V.slAdj, { ro:true, spread:true }));
+  P('sl', sl); next();
+
+  const tp = [
+    B(c1, g.narrowestW, 'TP ×' + state.tps),
+    L(c1 + g.narrowestW + g.hSp, g.narrowLabelW, 'Take-profit:'),
+    E(g.c2, g.normalEdit, V.tp),
+    B(g.c2 + g.normalEdit + 1, 19, '+', { mini:true }),
+    B(g.c2 + g.normalEdit + 1, 19, '–', { mini:true, dy:10 })
+  ];
+  if (state.sa) tp.push(B(g.c2 + g.normalEdit + 22, 20, 'SA', { press:true }),
+                        E(g.c2 + g.normalEdit + 44, 60, V.tpAdj, { ro:true, spread:true }));
+  tp.push(C(g.c4r, 62, 'Lock', false));
+  P('tp', tp); next();
+
+  for (let i = 2; i <= state.tps; i++) {
+    P('tp' + i, [
+      B(c1, g.narrowestW, '–'),
+      L(c1 + g.narrowestW + g.hSp, g.narrowLabelW, 'Take-profit ' + i + ':'),
+      E(g.c2, g.normalEdit, (3250 + 8 * i).toFixed(2)),
+      B(g.c2 + g.normalEdit + 1, 19, '+', { mini:true }),
+      B(g.c2 + g.normalEdit + 1, 19, '–', { mini:true, dy:10 })
+    ]); next();
+  }
+
+  // Stop price (hanya Pending / Stop Limit)
+  if (state.order !== 'Instant') {
+    P('stopPrice', [
+      L(c1, g.labelW, 'Stop price'),
+      E(g.c2, g.normalEdit, '3249.20'),
+      B(g.c2 + g.normalEdit + 1, 19, '+', { mini:true }),
+      B(g.c2 + g.normalEdit + 1, 19, '–', { mini:true, dy:10 })
+    ]); next();
+  }
+
+  P('order', [
+    L(c1, g.labelW, 'Order type'),
+    B(g.c2, g.normalEdit, state.order),
+    B(g.c3, g.narrowLabelW, 'Hide lines')
+  ]); next();
+
+  P('commission', [
+    L(c1, g.normalEdit + 20, 'Commission'),
+    B(g.c2, 22, '%'),
+    E(g.c2 + 27, g.normalEdit - 22, V.commission),
+    L(g.c2 + g.normalEdit + 2, 10, '*')
+  ]); next();
+
+  P('account', [
+    B(c1, g.labelW + 18, 'Account balance'),
+    E(g.c2, g.normalEdit, V.account),
+    L(g.c2 + g.normalEdit + 2, 10, '*')
+  ]); next();
+
+  P('columns', [ H(g.c2, g.normalEdit, 'Input'), H(g.c3, g.narrowLabelW, 'Result') ]); next();
+
+  P('riskp', [ L(c1, g.labelW, 'Risk'), E(g.c2, g.riskPerc, V.riskP), E(g.c3, g.riskPerc, V.riskPRes, { ro:true }) ]); next();
+  P('riskm', [ L(c1, g.labelW, 'Risk money'), E(g.c2, g.riskPerc, V.riskM), E(g.c3, g.riskPerc, V.riskMRes, { ro:true }) ]); next();
+  P('reward', [ L(c1, g.labelW, 'Reward money'), E(g.c2, g.riskPerc, V.reward), E(g.c3, g.riskPerc, V.rewardRes, { ro:true }) ]); next();
+  P('rr', [ L(c1, g.labelW, 'Reward/risk'), E(g.c2, g.riskPerc, V.rr), E(g.c3, g.riskPerc, V.rrRes, { ro:true }) ]); next();
+  P('ps', [ L(c1, g.labelW, 'Position size'), B(g.c2, 50, 'Max PS'), E(g.c2 + 55, g.riskPerc, V.ps) ]); next();
+  P('url', [ cell('c url', c1, 200, 'EarnForex.com') ]);
+  return out;
+}
+/* ---------------- Tab RISK (:925-1027) ---------------- */
+function rowsRisk() {
+  const g = G(), out = [], start = g.rowStart + g.elH + 3 * g.vSp;
+  let y = start;
+  const next = () => { y += g.elH + g.vSp; };
+  const P = (k, c) => out.push({ key: k, y, cells: c });
+  const c1 = g.hSp * 2, rgX = c1 + g.includeSymbolsW + g.vSp, rgW = g.c4r + g.riskLot - rgX;
+
+  P('rgpOrders', [ L(c1, g.includeSymbolsW, 'Include orders'), R(rgX, rgW, ['All', 'Open', 'Pending'], 0) ]); next();
+  P('rgpSymbols', [ L(c1, g.includeSymbolsW, 'Include symbols'), R(rgX, rgW, ['All', 'Current', 'Other'], 0) ]); next();
+  P('rgpDirections', [ L(c1, g.includeSymbolsW, 'Include'), R(rgX, rgW, ['All', 'Buy', 'Sell'], 0) ]); next();
+  P('chkIgnoreSL', [ C(c1, g.panelEnd - c1, 'Ignore orders without stop-loss', false) ]); next();
+  P('chkIgnoreTP', [ C(c1, g.panelEnd - c1, 'Ignore orders without take-profit', false) ]); next();
+
+  P('curHeads', [ H(g.c2r, g.narrowLabelW, 'Risk $'), H(g.c3r, 64, 'Risk %'), H(g.c4r, 50, 'Lots') ]); next();
+  P('cur', [ L(c1, g.labelW, 'Current portfolio'), E(g.c2r, g.narrowLabelW, '0.00', { ro:true }), E(g.c3r, g.narrowestW, '0.00', { ro:true }), E(g.c4r, 50, '0.00', { ro:true }) ]); next();
+  P('curProfitHeads', [ H(g.c2r, g.narrowLabelW, 'Reward $'), H(g.c3r, 64, 'Reward %'), H(g.c4r, 50, 'CRRR') ]); next();
+  P('curProfit', [ E(g.c2r, g.narrowLabelW, '0.00', { ro:true }), E(g.c3r, g.narrowestW, '0.00', { ro:true }), E(g.c4r, 50, '—', { ro:true }) ]); next();
+
+  P('potHeads', [ H(g.c2r, g.narrowLabelW, 'Risk $'), H(g.c3r, 64, 'Risk %'), H(g.c4r, 50, 'Lots') ]); next();
+  P('pot', [ L(c1, g.labelW, 'Potential portfolio'), E(g.c2r, g.narrowLabelW, V.riskMRes, { ro:true }), E(g.c3r, g.narrowestW, V.riskPRes, { ro:true }), E(g.c4r, 50, V.ps, { ro:true }) ]); next();
+  P('potProfitHeads', [ H(g.c2r, g.narrowLabelW, 'Reward $'), H(g.c3r, 64, 'Reward %'), H(g.c4r, 50, 'PRRR') ]); next();
+  P('potProfit', [ E(g.c2r, g.narrowLabelW, V.rewardRes, { ro:true }), E(g.c3r, g.narrowestW, '1.87', { ro:true }), E(g.c4r, 50, V.rrRes, { ro:true }) ]);
+  return out;
+}
+
+/* ---------------- Tab MARGIN (:1036-1105) ---------------- */
+function rowsMargin() {
+  const g = G(), out = [], start = g.rowStart + g.elH + 3 * g.vSp;
+  let y = start;
+  const next = () => { y += g.elH + g.vSp; };
+  const P = (k, c) => out.push({ key: k, y, cells: c });
+  const c1 = g.hSp * 2;
+
+  P('posMargin', [ L(c1, g.labelW, 'Position margin'), E(g.c2m, g.normalEdit, V.margin, { ro:true }) ]); next();
+  P('usedMargin', [ L(c1, g.labelW + 40, 'Future used margin'), E(g.c2m, g.normalEdit, V.usedMargin, { ro:true }) ]); next();
+  P('freeMargin', [ L(c1, g.labelW + 40, 'Future free margin'), E(g.c2m, g.normalEdit, V.freeMargin, { ro:true }) ]); next();
+  const xAcc = g.c2m + g.leverageW + 2 * g.hSp, wAcc = g.width - xAcc - 8;
+  P('lev', [
+    L(c1, g.c2m - c1 - 4, 'Custom leverage =   1:'),
+    E(g.c2m, g.leverageW, ''),
+    L(xAcc, wAcc, '(Account = 1:' + V.leverage + ')')
+  ]); next();
+  P('levSym', [ L(xAcc, wAcc, '(Symbol = 1:' + V.leverage + ')') ]); next();
+  P('maxPs', [ L(c1, g.wideLabelW, 'Maximum position size by margin:'), E(g.maxPs, g.c2 + g.wideEditW - g.maxPs, V.maxPsByMargin, { ro:true }) ]);
+  return out;
+}
+/* ---------------- Tab SWAPS (:1113-1176) ---------------- */
+function rowsSwaps() {
+  const g = G(), out = [], start = g.rowStart + g.elH + 3 * g.vSp;
+  let y = start;
+  const next = () => { y += g.elH + g.vSp; };
+  const P = (k, c) => out.push({ key: k, y, cells: c });
+  const c1 = g.hSp * 2, wide = g.swapSizeEdit * 2 + g.hSp;
+
+  P('swapType', [ L(c1, 55, 'Type:'), E(c1 + 55, wide, 'Points', { ro:true }) ]); next();
+  P('swapTriple', [ L(c1, 55, 'Triple swap:'), E(c1 + 55, wide, 'Wednesday', { ro:true }) ]); next();
+  P('swapHeads', [ H(g.c2s, 50, 'Long'), H(g.c3s, 50, 'Short') ]); next();
+  P('swapNominal', [ L(c1, 45, 'Nominal'), E(g.c2s, g.swapSizeEdit, '−10.50', { ro:true }), E(g.c3s, g.swapSizeEdit, '12.30', { ro:true }) ]); next();
+  P('swapDaily', [ L(c1, 45, 'Daily'), E(g.c2s, g.swapSizeEdit, '−10.50', { ro:true }), E(g.c3s, g.swapSizeEdit, '12.30', { ro:true }), L(g.c4s, g.swapLast, 'per lot') ]); next();
+  P('swapDailyPS', [ E(g.c2s, g.swapSizeEdit, '−1.99', { ro:true }), E(g.c3s, g.swapSizeEdit, '2.34', { ro:true }), L(g.c4s, g.swapLast, 'per PS') ]); next();
+  P('swapYearly', [ L(c1, 45, 'Yearly'), E(g.c2s, g.swapSizeEdit, '−3 832.50', { ro:true }), E(g.c3s, g.swapSizeEdit, '4 489.50', { ro:true }), L(g.c4s, g.swapLast, 'per lot') ]); next();
+  P('swapYearlyPS', [ E(g.c2s, g.swapSizeEdit, '−728.18', { ro:true }), E(g.c3s, g.swapSizeEdit, '853.01', { ro:true }), L(g.c4s, g.swapLast, 'per PS') ]); next();
+  P('swapNote', [ L(c1, g.panelEnd - c1, 'Long = biaya (negatif), Short = kredit — contoh nilai.') ]);
+  return out;
+}
+
+/* ---------------- Tab TRADING (:1187-1346) ---------------- */
+function rowsTrading() {
+  const g = G(), out = [], start = g.rowStart + g.elH + 3 * g.vSp;
+  let y = start;
+  const next = () => { y += g.elH + g.vSp; };
+  const P = (k, c) => out.push({ key: k, y, cells: c });
+  const c1 = g.hSp * 2, c2t = g.c2m + g.hSp, c3t = c2t + g.normalEdit + 5;
+  const off = state.wide ? 60 : 0;                 // kolom kanan digeser pada panel lebar
+  const xTot = 122 + off, xTotE = xTot + 42, xPer = xTotE + 44, xPerE = xPer + 72;
+  const xExp = 226 + off, xExpE = xExp + 42, xMin = xExpE + 43;
+
+  P('trade', [ cell('c btn', c1, g.narrowestW, 'Trade', { bold:true }) ]); next();
+  P('trail', [ L(c1, 85, 'Trailing stop'), E(c2t, 55, '0'), L(g.c3r, 65, 'Breakeven'), E(g.c3r + 67, 40, '0') ]); next();
+  P('magic', [ L(c1, 85, 'Magic number'), E(c2t, g.normalEdit - 15, '2022052714'), L(xExp, 42, 'Expiry'), E(xExpE, 40, '30'), L(xMin, 28, 'min.') ]); next();
+  P('comment', [ L(c1, 108, 'Order commentary'), E(c2t, g.normalEdit, 'PS'), C(xExp, 100, 'Auto-suffix', true) ]); next();
+
+  if (state.maxp) {
+    P('maxTrades', [ L(c1, 108, 'Max # of trades'), L(xTot, 42, 'Total'), E(xTotE, 40, '0'), L(xPer, 70, 'Per symbol'), E(xPerE, 40, '0') ]); next();
+    P('maxVolume', [ L(c1, 108, 'Max volume'), L(xTot, 42, 'Total'), E(xTotE, 40, '0.00'), L(xPer, 70, 'Per symbol'), E(xPerE, 40, '0.00') ]); next();
+    P('maxRisk', [ L(c1, 108, 'Max risk'), L(xTot, 42, 'Total'), E(xTotE, 40, '0'), L(xPer, 70, 'Per symbol'), E(xPerE, 40, '0') ]); next();
+  }
+
+  P('disableChk', [ C(c1, g.panelEnd - c1, 'Disable trading when lines are hidden', false) ]); next();
+  P('tpHead', [ L(c1, 30, 'TP'), B(g.multiTpBtn, 22, '↓'), B(g.multiTpBtn + 24, 22, '↑'), B(g.multiTpBtn + 48, 45, 'Share') ]); next();
+  P('tp1', [ L(c1, 30, 'TP 1'), E(c2t, g.normalEdit, V.tp), E(c3t, 55, '100') ]); next();
+  P('tpPoints', [ L(c1, g.panelEnd - c1, 'Points') ]); next();
+
+  if (state.fuse) {
+    P('maxSlip', [ L(c1, 108, 'Max slippage'), E(c2t, g.normalEdit, '10') ]); next();
+    P('maxSpread', [ L(c1, 108, 'Max spread'), E(c2t, g.normalEdit, '0') ]); next();
+    P('maxEsl', [ L(c1, 108, 'Max Entry/SL distance'), E(c2t, g.normalEdit, '0') ]); next();
+    P('minEsl', [ L(c1, 108, 'Min Entry/SL distance'), E(c2t, g.normalEdit, '0') ]); next();
+    P('maxRiskP', [ L(c1, 108, 'Max risk %'), E(c2t, g.normalEdit, '0') ]); next();
+  }
+
+  P('subPos', [ C(c1, g.panelEnd - c1, 'Subtract open positions volume', false) ]); next();
+  P('subOrd', [ C(c1, g.panelEnd - c1, 'Subtract pending orders volume', false) ]); next();
+  P('noSl', [ C(c1, g.panelEnd - c1, 'Do not apply stop-loss', false) ]); next();
+  P('noTp', [ C(c1, g.panelEnd - c1, 'Do not apply take-profit', false) ]); next();
+  P('confirmChk', [ C(c1, g.panelEnd - c1, 'Ask for confirmation', false) ]);
+  return out;
+}
+
+const TABS = [['main','Main'],['risk','Risk'],['margin','Margin'],['swaps','Swaps'],['trading','Trading']];
+function rowsFor(tab) {
+  if (tab === 'risk') return rowsRisk();
+  if (tab === 'margin') return rowsMargin();
+  if (tab === 'swaps') return rowsSwaps();
+  if (tab === 'trading') return rowsTrading();
+  return rowsMain();
+}
+/* ---------------- Nomor baris kode per baris panel ---------------- */
+const CODE = {
+  entry:'L680 · B683 · E686 · 687-688', sl:'698/700 · E702 · 716-718', tp:'723/724 · E726 · 740-742',
+  order:'827-830', stopPrice:'781-785', commission:'834-837', account:'843-850', columns:'855-856',
+  riskp:'860-866', riskm:'874-876', reward:'882-886', rr:'894-896', ps:'904-906', url:'921',
+  rgpOrders:'932-933', rgpSymbols:'939-940', rgpDirections:'946-947', chkIgnoreSL:'951',
+  chkIgnoreTP:'955', curHeads:'959-961', cur:'965-974', curProfitHeads:'978-980',
+  curProfit:'984-992', potHeads:'996-998', pot:'1002-1011', potProfitHeads:'1015-1017', potProfit:'1021-1027',
+  posMargin:'1036-1037', usedMargin:'1043-1044', freeMargin:'1050-1051', lev:'1059-1061',
+  levSym:'1065', maxPs:'1069-1071',
+  swapType:'1113-1114', swapTriple:'1120-1121', swapHeads:'1127-1128', swapNominal:'1132-1134',
+  swapDaily:'1142-1145', swapDailyPS:'1153-1155', swapYearly:'1163-1166', swapYearlyPS:'1174-1176', swapNote:'—',
+  trade:'1187', trail:'1189-1192', magic:'1196-1200', comment:'1204-1206', maxTrades:'1212-1216',
+  maxVolume:'1220-1224', maxRisk:'1228-1232', disableChk:'1248', tpHead:'1255-1258', tp1:'1267-1269',
+  tpPoints:'1276', maxSlip:'1280-1281', maxSpread:'1285-1286', maxEsl:'1290-1291', minEsl:'1295-1296',
+  maxRiskP:'1300-1301', subPos:'1318', subOrd:'1319', noSl:'1323', noTp:'1324', confirmChk:'1346'
+};
+
+function renderPanel() {
+  const g = G();
+  const rows = rowsFor(state.tab);
+  let h = '<div class="ps' + (state.wide ? ' wide' : '') + '">' +
+    '<div class="ps-cap"><span>Position Sizer (ver. 3.16d)</span><span class="grow"></span>' +
+    '<span class="ctl"><i>–</i><i>□</i></span></div><div class="ps-body">';
+
+  TABS.forEach((t, i) => {
+    const x = g.tabStart + i * (g.tabW + g.tabSp);
+    h += '<div class="c tab' + (state.tab === t[0] ? ' on' : '') + '" style="left:' + x + 'px;top:8px;width:' + g.tabW + 'px" data-tab="' + t[0] + '">' + t[1] + '</div>';
+  });
+
+  rows.forEach(r => {
+    let inner = '';
+    r.cells.forEach(c => {
+      let st = 'left:' + c.x + 'px;width:' + c.w + 'px;';
+      if (c.dy) st += 'top:' + c.dy + 'px;';
+      if (c.bold) st += 'font-weight:700;';
+      const cls = c.cls + (c.spread ? ' spread' : '');
+      const body = c.items
+        ? c.items.map((s, i) => '<span class="' + (i === c.active ? 'on' : '') + '">' + s + '</span>').join('')
+        : c.text;
+      inner += '<div class="' + cls + '" style="' + st + '">' + body + '</div>';
+    });
+    h += '<div class="ps-row" data-rkey="' + r.key + '" style="top:' + r.y + 'px">' + inner + '</div>';
+  });
+
+  h += '</div><div class="ps-note">mockup HTML — bukan render MQL5</div></div>';
+  const mount = document.getElementById('mount');
+  mount.innerHTML = h;
+  mount.querySelectorAll('[data-tab]').forEach(el => {
+    el.onclick = () => { state.tab = el.dataset.tab; sync(); };
+  });
+  buildAnatomy(rows);
+}
+/* ---------------- Chart latar ---------------- */
+function drawChart() {
+  const el = document.getElementById('chart');
+  const W = el.clientWidth || 1120, H = el.clientHeight || 640;
+  const pmin = 3242.5, pmax = 3262.5, rightPad = 62, leftPad = 54;
+  const yOf = p => H - ((p - pmin) / (pmax - pmin)) * H;
+  let h = '';
+
+  for (let p = 3245; p <= 3260; p += 2.5)
+    h += '<div class="gridline" style="position:absolute;left:0;right:0;top:' + yOf(p).toFixed(1) + 'px"></div>';
+  for (let i = 0; i <= 8; i++)
+    h += '<div class="gridline" style="position:absolute;top:0;bottom:0;left:' + (leftPad + i * (W - leftPad - rightPad) / 8).toFixed(0) + 'px"></div>';
+
+  let seed = 20250;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  const n = Math.max(30, Math.floor((W - leftPad - rightPad - 20) / 9));
+  const cw = 6;
+  let price = 3255.6;
+  for (let i = 0; i < n; i++) {
+    const o = price;
+    const c = o + (rnd() - 0.5) * 0.75 + (i > n * 0.55 ? -0.16 : 0.05);
+    const hi = Math.max(o, c) + rnd() * 0.3, lo = Math.min(o, c) - rnd() * 0.3;
+    price = c;
+    const x = leftPad + 10 + i * 9, col = c >= o ? '#4caf50' : '#ef5350';
+    const top = yOf(Math.max(o, c)), bot = yOf(Math.min(o, c));
+    h += '<div style="position:absolute;left:' + (x + cw / 2) + 'px;top:' + yOf(hi).toFixed(1) + 'px;height:' + (yOf(lo) - yOf(hi)).toFixed(1) + 'px;width:1px;background:' + col + '"></div>';
+    h += '<div style="position:absolute;left:' + x + 'px;top:' + top.toFixed(1) + 'px;height:' + Math.max(1, bot - top).toFixed(1) + 'px;width:' + cw + 'px;background:' + col + '"></div>';
+  }
+
+  const levels = [
+    { n:'Entry', p:3250.00, col:'#4a90d9', tag:'' },
+    { n:'SL', p:3245.00, col:'#3ea97a', tag:'−500 poin' },
+    { n:'TP', p:3260.00, col:'#d8a52a', tag:'+1 000 poin' }
+  ];
+  levels.forEach(l => {
+    const y = yOf(l.p), lx = 386;
+    h += '<div class="lvl" style="position:absolute;left:0;right:' + rightPad + 'px;top:' + y.toFixed(1) + 'px;background:' + l.col + '"></div>';
+    h += '<div class="lvl-label" style="position:absolute;left:' + lx + 'px;top:' + (y - 16).toFixed(1) + 'px;color:' + l.col + '">' + l.n + ': ' + l.p.toFixed(2) + '</div>';
+    if (l.tag) h += '<div class="lvl-label" style="position:absolute;left:' + (lx + 92) + 'px;top:' + (y - 16).toFixed(1) + 'px;color:' + l.col + ';opacity:.8">' + l.tag + '</div>';
+    h += '<div class="lvl-label" style="position:absolute;left:' + (W - rightPad + 4) + 'px;top:' + (y - 8).toFixed(1) + 'px;background:' + l.col + ';color:#000;padding:0 3px;font-weight:700">' + l.p.toFixed(2) + '</div>';
+  });
+
+  for (let p = 3245; p <= 3260; p += 2.5)
+    h += '<div class="axis" style="position:absolute;right:4px;top:' + (yOf(p) - 7).toFixed(1) + 'px">' + p.toFixed(2) + '</div>';
+  for (let i = 0; i <= 8; i++)
+    h += '<div class="axis" style="position:absolute;bottom:3px;left:' + (leftPad + i * (W - leftPad - rightPad) / 8).toFixed(0) + 'px">' + (9 + i) + ':00</div>';
+
+  el.innerHTML = h;
+}
+
+/* ---------------- Toolbar ---------------- */
+const OPTS = {
+  theme: () => { state.dark = !state.dark; },
+  wide: () => { state.wide = !state.wide; },
+  sa: () => { state.sa = !state.sa; },
+  order: () => { state.order = state.order === 'Instant' ? 'Pending' : (state.order === 'Pending' ? 'Stop Limit' : 'Instant'); },
+  tp: () => { state.tps = state.tps >= 3 ? 1 : state.tps + 1; },
+  fuse: () => { state.fuse = !state.fuse; },
+  maxp: () => { state.maxp = !state.maxp; }
+};
+
+function sync() {
+  document.body.classList.toggle('ps-dark', state.dark);
+  const label = {
+    theme: 'Tema: ' + (state.dark ? 'dark' : 'light'),
+    wide: 'Lebar: ' + (state.wide ? '500 (wide)' : '350 (narrow)'),
+    sa: 'SA-SL/TP: ' + (state.sa ? 'on' : 'off'),
+    order: 'Order: ' + state.order,
+    tp: 'TP: ' + state.tps,
+    fuse: 'Fuses: ' + (state.fuse ? 'on' : 'off'),
+    maxp: 'Max params: ' + (state.maxp ? 'on' : 'off')
+  };
+  document.querySelectorAll('#opts button').forEach(b => {
+    const o = b.dataset.opt;
+    b.textContent = label[o];
+    b.classList.toggle('on', (o === 'theme' && state.dark) || (o === 'wide' && state.wide) ||
+      (o === 'sa' && state.sa) || (o === 'tp' && state.tps > 1) ||
+      (o === 'order' && state.order !== 'Instant') ||
+      (o === 'fuse' && !state.fuse) || (o === 'maxp' && !state.maxp));
+  });
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === state.tab));
+  document.getElementById('status').textContent = 'Tab ' + state.tab + ' · ' +
+    (state.wide ? '500' : '350') + '×570 px · ' + rowsFor(state.tab).length + ' baris aktif';
+  renderPanel();
+  drawChart();
+}
+/* ---------------- Tabel anatomi & geometri ---------------- */
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function kindOf(cls) {
+  if (cls.indexOf('edit') > -1) return 'CEdit';
+  if (cls.indexOf('btn') > -1) return 'CButton';
+  if (cls.indexOf('chk') > -1) return 'CCheckBox';
+  if (cls.indexOf('rgp') > -1) return 'CHorizontalRadioGroup';
+  if (cls.indexOf('tab') > -1) return 'CButton (tab)';
+  if (cls.indexOf('hdr') > -1) return 'CLabel (tebal)';
+  if (cls.indexOf('url') > -1) return 'CLabel (link)';
+  return 'CLabel';
+}
+
+function buildAnatomy(rows) {
+  const host = document.getElementById('anatomy');
+  let h = '<table class="tbl"><thead><tr><th style="width:34px">#</th><th>Baris panel</th>' +
+          '<th style="width:230px">Kontrol MQL5</th><th style="width:180px">Kode :</th></tr></thead><tbody>';
+  rows.forEach((r, i) => {
+    const cand = r.cells.filter(c => c.text && String(c.text).trim().length > 1);
+    const lbl = cand.filter(c => c.cls.indexOf('lbl') > -1)[0]
+             || cand.filter(c => c.cls.indexOf('btn') > -1)[0]
+             || cand[0] || { text: '—' };
+    const kinds = Array.from(new Set(r.cells.map(c => kindOf(c.cls)))).join(', ');
+    h += '<tr data-rkey="' + r.key + '"><td>' + (i + 1) + '</td><td>' + esc(lbl.text) +
+         '</td><td><code>' + kinds + '</code></td><td><code>' + (CODE[r.key] || '—') + '</code></td></tr>';
+  });
+  host.innerHTML = h + '</tbody></table>';
+}
+
+function buildGeoTable() {
+  const rows = [
+    ['Lebar panel', '350 px', '500 px', 'Create() :547-552 — 500 bila akun/mata uang > 2 desimal'],
+    ['Tinggi panel', '570 px', '570 px', 'Create() :552 (y2 = y1 + 570)'],
+    ['row_start', '10', '10', ':575'],
+    ['element_height', '20', '20', ':576'],
+    ['v_spacing', '4', '4', ':577'],
+    ['h_spacing', '5', '5', ':579'],
+    ['tab_button_start / width / spacing', '15 / 50 / 15', '15 / 50 / 50', ':580-581, :600/:629'],
+    ['normal_label_width', '108', '108', ':582'],
+    ['narrow_label_width', '85', '85', ':583'],
+    ['narrow_edit_width', '75', '75', ':584'],
+    ['narrowest_label_width', '50', '50', ':585'],
+    ['leverage_edit_width', '35', '35', ':586'],
+    ['wide_edit_width', '170', '170', ':587'],
+    ['wide_label_width', '193', '193', ':588'],
+    ['normal_edit_width', '85', '125', ':630 / :601'],
+    ['risk_perc_edit_width', '65', '85', ':631 / :602'],
+    ['quick_risk_button_width', '32', '32', ':590'],
+    ['Kolom 1 / 2 / 3', '10 / 133 / 235', '10 / 173 / 355', ':591, :639-649 / :610-621'],
+    ['Kolom Risk (2/3/4)', '124 / 213 / 282', '132 / 265 / 358', ':640-649 / :611-620'],
+    ['Kolom Margin', '148', '188', ':641 / :612'],
+    ['Kolom Swaps (2/3/4)', '65 / 145 / 225', '65 / 195 / 325', ':592, :646-650'],
+    ['panel_end', '320', '440', ':657'],
+    ['Titik mulai baris isi', '42 px', '42 px', ':671 (row_start + element_height + 3·v_spacing)'],
+    ['Edit aktif / read-only', '#ffffff / #dddddd', 'dark: #aaaaaa / #999999', 'Defines.mqh :30-31, :40, :215-222'],
+    ['Tombol aktif / nonaktif', '#c8c8c8 / #e0e0e0', 'dark: #a19999 / #919999', 'Defines.mqh :33-34, :216-224'],
+    ['Teks panel (dark mode)', '#000000', '#000000', 'DARKMODE_TEXT_COLOR 0x000000'],
+    ['Warna tombol Long/Short/Trade', 'default = warna tombol standar', 'bisa di-set input', 'Position Sizer.mq5 :183-185, :226-251']
+  ];
+  let h = '<table class="tbl"><thead><tr><th>Konstanta / elemen</th><th>Narrow (350)</th>' +
+          '<th>Wide (500)</th><th>Sumber</th></tr></thead><tbody>';
+  rows.forEach(r => { h += '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td><td><code>' + esc(r[3]) + '</code></td></tr>'; });
+  document.getElementById('geoTable').innerHTML = h + '</tbody></table>';
+}
+
+/* ---------------- Init ---------------- */
+(function init() {
+  const q = new URLSearchParams(location.search);
+  if (TABS.some(t => t[0] === q.get('tab'))) state.tab = q.get('tab');
+  if (q.get('dark') === '1') state.dark = true;
+  if (q.get('wide') === '1') state.wide = true;
+  if (q.get('sa') === '1') state.sa = true;
+  if (q.get('tps')) state.tps = Math.min(3, Math.max(1, parseInt(q.get('tps'), 10) || 1));
+  if (q.get('order')) state.order = q.get('order');
+  const tabsHost = document.getElementById('tabs');
+  tabsHost.innerHTML = TABS.map(t => '<button data-tab="' + t[0] + '">' + t[1] + '</button>').join('');
+  tabsHost.querySelectorAll('button').forEach(b => {
+    b.onclick = () => { state.tab = b.dataset.tab; sync(); };
+  });
+  document.querySelectorAll('#opts button').forEach(b => {
+    b.onclick = () => { OPTS[b.dataset.opt](); sync(); };
+  });
+  document.addEventListener('mouseover', e => {
+    const tr = e.target.closest('#anatomy tr[data-rkey]');
+    document.querySelectorAll('.ps-row.hl').forEach(el => el.classList.remove('hl'));
+    if (!tr) return;
+    const target = document.querySelector('.ps-row[data-rkey="' + tr.dataset.rkey + '"]');
+    if (target) target.classList.add('hl');
+  });
+  window.addEventListener('resize', drawChart);
+  buildGeoTable();
+  sync();
+})();
+
+
+
+
+
+</script>
+</body>
+</html>
+
+

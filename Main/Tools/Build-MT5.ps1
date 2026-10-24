@@ -12,7 +12,7 @@
       5. Verifies every deployed file by SHA256 hash.
 
 .PARAMETER Target
-    Indicator, EA, or All. Default: All.
+    Indicator, EA, RiskPanel, or All. Default: All.
 
 .PARAMETER NoDeploy
     Compile only, do not copy into MT5.
@@ -24,11 +24,11 @@
 .EXAMPLE
     .\Build-MT5.ps1
     .\Build-MT5.ps1 -Target Indicator
-    .\Build-MT5.ps1 -Target Indicator -Restart
+    .\Build-MT5.ps1 -Target RiskPanel -Restart
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('Indicator', 'EA', 'All')]
+    [ValidateSet('Indicator', 'EA', 'RiskPanel', 'All')]
     [string]$Target = 'All',
 
     [switch]$NoDeploy,
@@ -57,6 +57,11 @@ $Programs = @{
         Name = 'HoekaGataAlgo'
         Dir  = 'Experts\HokaGATA'
         File = 'HoekaGataAlgo.mq5'
+    }
+    RiskPanel = @{
+        Name = 'HoekaGataRiskPanel'
+        Dir  = 'Experts\HoekaGATA\HoekaGataRiskPanel'
+        File = 'HoekaGataRiskPanel.mq5'
     }
 }
 
@@ -172,7 +177,7 @@ else { Write-Host '   mt5 process: STOPPED' }
 
 # ---------------------------------------------------------------------- compile
 $selected = switch ($Target) {
-    'All'   { @('Indicator', 'EA') }
+    'All'   { @('Indicator', 'EA', 'RiskPanel') }
     default { @($Target) }
 }
 

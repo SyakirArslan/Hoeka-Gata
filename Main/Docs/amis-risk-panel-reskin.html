@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>HoekaGata AMIS Risk Panel &mdash; Visual Requirement Reference</title>
+<style>
+/* ==========================================================================
+   HoekaGata AMIS Risk Panel - visual requirement reference
+   Target: Main/MQL5/Experts/HokaGATA Risk Panel/HoekaGataRiskPanel.mq5
+   Every panel number below is a constant that the MQL5 file MUST declare
+   with the same value (see "Geometry" table at the bottom).
+   ========================================================================== */
+
+:root {
+  /* ---- panel geometry (1:1 with the MQL5 const ints of section 6) ---- */
+  --panel-w:       340px;   /* PANEL_W            */
+  --pad-x:          14px;   /* PANEL_PAD_X        */
+  --pad-t:          12px;   /* PANEL_PAD_TOP      */
+  --pad-b:          12px;   /* PANEL_PAD_BOTTOM   */
+  --title-h:        24px;   /* PANEL_TITLE_H      */
+  --title-gap:      10px;   /* PANEL_TITLE_GAP    */
+  --card-pad:       14px;   /* PANEL_CARD_PAD     */
+  --row-h:          38px;   /* PANEL_ROW_H        */
+  --row-risk-h:     22px;   /* PANEL_RISK_ROW_H   */
+  --pill-w:        124px;   /* PANEL_PILL_W       */
+  --pill-h:         32px;   /* PANEL_PILL_H       */
+  --slider-h:       14px;   /* PANEL_SLIDER_H     */
+  --ticks-h:        14px;   /* PANEL_TICKS_H      */
+  --seg-w:         160px;   /* PANEL_SEG_W        */
+  --seg-h:          30px;   /* PANEL_SEG_H        */
+  --sum-h:          52px;   /* PANEL_SUM_H        */
+  --note-h:         30px;   /* PANEL_NOTE_H       */
+  --banner-h:       15px;   /* PANEL_BANNER_H     */
+  --btn-h:          54px;   /* PANEL_BUTTON_H     */
+  --btn-gap:        10px;   /* PANEL_BUTTON_GAP   */
+  --margin-x:       12px;   /* PANEL_MARGIN_X     */
+  --margin-y:       12px;   /* PANEL_MARGIN_Y     */
+  --font-body:       9pt;   /* PANEL_FONT_BODY    */
+  --font-title:     12pt;   /* PANEL_FONT_TITLE   */
+
+  /* ---- palette (C'r,g,b' in MQL5) ---- */
+  --bg:          #10151c;   /* PANEL_BG          */
+  --line:        #2a3441;   /* panel outline     */
+  --text:        #e6ebf1;   /* PANEL_TEXT        */
+  --label:       #d3dae3;   /* PANEL_LABEL       */
+  --muted:       #8a97a6;   /* PANEL_MUTED       */
+  --teal:        #2ec4b6;   /* PANEL_ACCENT      */
+  --green:       #26a69a;   /* PANEL_BUY         */
+  --red:         #e5484d;   /* PANEL_SELL        */
+  --amber:       #e0a02a;   /* PANEL_WARNING     */
+  --amber-bg:    #33280f;   /* warning banner    */
+
+  /* ---- risk card (v2 layout, screenshot target) ---- */
+  --bg-card:     #1a2029;   /* CARD_BG           */
+  --line-card:   #262e39;   /* CARD_BORDER       */
+  --line-pill:   #3b4655;   /* PILL_BORDER       */
+  --knob:        #05070a;   /* SLIDER_KNOB       */
+  --knob-ring:   #2f353d;   /* KNOB_RING         */
+  --track:       #4b5563;   /* SLIDER_TRACK      */
+  --track-fill:  #e9eef4;   /* SLIDER_FILL       */
+  --seg-on:      #34363c;   /* SEG_ACTIVE_BG     */
+  --budget-red:  #f65b5f;   /* BUDGET_VALUE      */
+  --sell-btn:    #b3262c;   /* BTN_SELL_BG       */
+  --buy-btn:     #0f7a55;   /* BTN_BUY_BG        */
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 36px 44px 80px;
+  background: #0f1419;
+  color: #c9d2dc;
+  font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+h1 {
+  font-size: 21px; margin: 0 0 4px; color: #fff; font-weight: 600;
+  letter-spacing: .2px;
+}
+h2 {
+  font-size: 14px; margin: 40px 0 10px; color: #fff; font-weight: 600;
+  letter-spacing: .4px; text-transform: uppercase;
+  border-bottom: 1px solid #223040; padding-bottom: 6px;
+}
+h3 { font-size: 12.5px; margin: 22px 0 6px; color: var(--teal); font-weight: 600; }
+p  { margin: 6px 0 10px; max-width: 1040px; }
+ul, ol { margin: 6px 0 12px; padding-left: 20px; max-width: 1040px; }
+li { margin: 3px 0; }
+code {
+  font-family: Consolas, "Courier New", monospace; font-size: 12px;
+  background: #182029; border: 1px solid #223040; border-radius: 3px;
+  padding: 1px 4px; color: #a8d8d4;
+}
+a { color: var(--teal); }
+.lead { color: #93a1b0; font-size: 13px; max-width: 1040px; }
+.wrap { max-width: 1280px; }
+
+/* ---------- documentation tables ---------- */
+table.doc {
+  border-collapse: collapse; width: 100%; max-width: 1100px;
+  margin: 10px 0 16px; font-size: 12.5px;
+}
+table.doc th {
+  text-align: left; font-weight: 600; color: #fff; background: #182029;
+  border: 1px solid #24313f; padding: 6px 9px; font-size: 12px;
+  text-transform: uppercase; letter-spacing: .4px;
+}
+table.doc td {
+  border: 1px solid #1d2833; padding: 5px 9px; vertical-align: top; color: #b9c4d0;
+}
+table.doc tr:nth-child(even) td { background: #131a21; }
+table.doc code { background: transparent; border: none; padding: 0; }
+.ok   { color: var(--green); font-weight: 600; }
+.no   { color: var(--red);   font-weight: 600; }
+.warn { color: var(--amber); font-weight: 600; }
+.mono { font-family: Consolas, "Courier New", monospace; font-size: 12px; }
+
+/* ---------- callouts ---------- */
+.note, .alert {
+  max-width: 1040px; margin: 12px 0 18px; padding: 10px 14px;
+  border-left: 3px solid var(--teal); background: #131e26;
+  border-radius: 0 3px 3px 0; color: #a9b8c6; font-size: 12.5px;
+}
+.alert { border-left-color: var(--amber); background: #1e1a10; }
+.note b, .alert b { color: #fff; }
+
+/* ---------- chart stage ---------- */
+.stage {
+  position: relative;
+  width: 760px; height: 560px;
+  margin: 14px 0 30px;
+  background:
+    repeating-linear-gradient(to right,  #1a2029 0 1px, transparent 1px 76px),
+    repeating-linear-gradient(to bottom, #1a2029 0 1px, transparent 1px 56px),
+    #131722;
+  border: 1px solid #223040;
+  overflow: hidden;
+}
+.stage-cap {
+  position: absolute; left: 10px; top: 8px; z-index: 5;
+  font-size: 10.5px; color: #5d6b7a; letter-spacing: .5px;
+  text-transform: uppercase;
+}
+/* fake candles: decorative only, shows how little chart the panel hides */
+.candle { position: absolute; width: 5px; }
+.candle i { position: absolute; left: 2px; width: 1px; display: block; }
+.candle b { position: absolute; left: 0; width: 5px; display: block; border-radius: 1px; }
+.candle.up b { background: #2ec4b6; opacity: .55; }
+.candle.up i { background: #2ec4b6; opacity: .45; }
+.candle.dn b { background: #e5484d; opacity: .5; }
+.candle.dn i { background: #e5484d; opacity: .4; }
+
+/* ==========================================================================
+   THE PANEL - 1:1 MT5 mockup
+   Outer panel: square corners, exactly as OBJ_RECTANGLE_LABEL renders.
+   The risk card and the pills below DO show a border-radius here because the
+   approved screenshot has one; MQL5 cannot, and section 6 documents that as
+   the single accepted deviation.
+   ========================================================================== */
+.panel {
+  position: absolute;
+  top: var(--margin-y); right: var(--margin-x);
+  width: var(--panel-w);
+  background: var(--bg);
+  /* outline drawn INSIDE the rect: in MT5 the border object adds no layout space,
+     so the mockup must not lose 2 px of content to a CSS border either */
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text);
+  user-select: none;
+}
+
+/* status dot: teal = live, amber = stale, red = indicator missing */
+.rm-dot {
+  display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--teal); margin-right: 4px; vertical-align: middle;
+  position: relative; top: -1px;
+}
+.rm-dot.stale { background: var(--amber); }
+.rm-dot.off   { background: var(--red); }
+
+/* value colour helpers, shared by the dialog mockup */
+.v-buy  { color: var(--green) !important; }
+.v-sell { color: var(--red)   !important; }
+.v-mute { color: var(--muted) !important; font-weight: 400 !important; }
+.v-neg  { color: var(--red)   !important; }
+.v-pos  { color: var(--green) !important; }
+
+/* ---------- preview state switcher (documentation only) ---------- */
+.switcher {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  margin: 16px 0 8px; padding: 8px 10px;
+  border: 1px solid #223040; background: #131a21; border-radius: 3px;
+  max-width: 1100px;
+}
+.sw-lbl {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .6px;
+  color: #6f7d8c; margin-right: 4px;
+}
+.sw {
+  font: inherit; font-size: 11.5px; cursor: pointer;
+  padding: 3px 9px; border-radius: 3px;
+  border: 1px solid #2a3441; background: #1a232d; color: #9aa8b6;
+}
+.sw:hover { border-color: #2ec4b6; color: #d7e2ec; }
+.sw.on { background: #17333a; border-color: #2b5c63; color: #2ec4b6; font-weight: 600; }
+
+/* ==========================================================================
+   RISK MANAGEMENT CARD - v2 layout (1:1 with the approved screenshot)
+   Every number here is a PANEL_* constant in RiskPanel_Config.mqh.
+   ========================================================================== */
+.rm-title {
+  height: var(--title-h); margin: var(--pad-t) var(--pad-x) 0;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: var(--font-title); font-weight: 700; letter-spacing: .9px;
+  line-height: var(--title-h);
+  color: #f5f7fa; text-transform: uppercase;
+}
+.rm-title .right { display: flex; align-items: center; gap: 6px; }
+.rm-title .side { font-size: 7.5pt; font-weight: 700; letter-spacing: .7px; color: var(--muted); }
+.rm-title .side.buy  { color: var(--green); }
+.rm-title .side.sell { color: var(--red); }
+.rm-title .side.warn { color: var(--amber); }
+
+.rm-card {
+  margin: var(--title-gap) var(--pad-x) 0; padding: var(--card-pad);
+  background: var(--bg-card);
+  box-shadow: inset 0 0 0 1px var(--line-card);   /* 1 px outline, no layout cost */
+  border-radius: 8px;                 /* MQL5: square corners, see section 6 */
+}
+.rm-body.hidden { display: none; }
+
+/* label + pill field rows */
+.rm-row {
+  height: var(--row-h); display: flex; align-items: center; justify-content: space-between;
+  font-size: var(--font-body); color: var(--label); line-height: var(--row-h);
+}
+.rm-row.bal   { margin-bottom: 6px; }
+.rm-row.comm  { margin-bottom: 14px; }
+.rm-row .k    { color: var(--label); }
+.rm-pill {
+  width: var(--pill-w); height: var(--pill-h);
+  line-height: calc(var(--pill-h) - 2px); padding: 0 14px;
+  border: 1px solid var(--line-pill); border-radius: calc(var(--pill-h) / 2);
+  font-family: Consolas, "Courier New", monospace; font-size: 10pt;
+  color: var(--text); text-align: left; overflow: hidden; white-space: nowrap;
+}
+.rm-pill.on { border-color: #5a7183; }
+.rm-pill.empty { color: var(--muted); }
+
+/* risk value row */
+.rm-row.risk { height: var(--row-risk-h); line-height: var(--row-risk-h); margin-bottom: 4px; }
+.rm-row.risk .v {
+  font-size: 11.5pt; font-weight: 700; color: var(--teal);
+  font-family: Arial, Helvetica, sans-serif;
+}
+.rm-row.risk .v.warn { color: var(--amber); }
+
+/* slider (track row + tick row) */
+.rm-slider { position: relative; height: var(--slider-h); }
+.rm-track {
+  position: absolute; left: 0; right: 0; top: 5px; height: 4px;
+  background: var(--track); border-radius: 2px;
+}
+.rm-fill {
+  position: absolute; left: 0; top: 5px; height: 4px;
+  background: var(--track-fill); border-radius: 2px;
+}
+.rm-knob {
+  position: absolute; top: -4px; width: 22px; height: 22px; margin-left: -11px;
+  background: var(--knob); border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--knob-ring);   /* opaque, MT5 has no alpha */
+}
+.rm-ticks {
+  display: flex; justify-content: space-between;
+  height: var(--ticks-h); line-height: var(--ticks-h);
+  margin-top: 0; margin-bottom: 8px;
+  font-size: 8pt; color: var(--muted);
+  font-family: Consolas, "Courier New", monospace;
+}
+
+/* segmented control */
+.rm-seg {
+  display: flex; width: var(--seg-w); height: var(--seg-h);
+  border: 1px solid var(--line-pill); border-radius: calc(var(--seg-h) / 2);
+}
+.rm-row.seg { height: calc(var(--seg-h) + 2px); line-height: calc(var(--seg-h) + 2px); margin-bottom: 6px; }
+.rm-seg .b {
+  flex: 1 1 0; text-align: center; line-height: calc(var(--seg-h) - 2px);
+  font-size: 9pt; color: var(--muted); border-radius: calc(var(--seg-h) / 2);
+}
+.rm-seg .b.on { background: var(--seg-on); color: #fff; font-weight: 700; }
+
+/* hairline + two column summary */
+.rm-div { height: 1px; background: #2b333f; margin: 0 0 14px; }
+.rm-sum { display: flex; height: var(--sum-h); margin-bottom: 10px; }
+.rm-sum .col { flex: 1 1 0; }
+.rm-cap {
+  font-size: 8pt; letter-spacing: .8px; text-transform: uppercase;
+  color: var(--muted); line-height: 12px;
+}
+.rm-big { font-size: 17pt; font-weight: 700; line-height: 30px; color: #fff; }
+.rm-big.budget { color: var(--budget-red); }
+.rm-big.warn { color: var(--amber); font-size: 14pt; }
+.rm-big.empty { color: var(--muted); font-weight: 400; }
+
+/* note + validation strip */
+.rm-note { min-height: var(--note-h); font-size: 8.5pt; line-height: 15px; color: var(--muted); }
+.rm-note.warn { color: #f0c46a; }
+.rm-banner {
+  display: flex; gap: 6px; margin-top: 8px;
+  font-size: 8pt; line-height: var(--banner-h); color: #f0c46a;
+}
+.rm-banner.blocker { color: #f08f92; }
+.rm-banner .ico { font-weight: 700; }
+.rm-banner.hidden { display: none; }
+
+/* execution buttons */
+.rm-foot { display: flex; gap: var(--btn-gap); padding: 14px var(--pad-x) var(--pad-b); }
+.rm-btn {
+  flex: 1 1 0; height: var(--btn-h); border-radius: 6px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; color: #fff;
+}
+.rm-btn .t { font-size: 13pt; font-weight: 700; letter-spacing: 1.6px; line-height: 18px; }
+.rm-btn .s { font-size: 8pt; letter-spacing: .2px; line-height: 13px; opacity: .92; }
+.rm-btn.sell { background: var(--sell-btn); }
+.rm-btn.buy  { background: var(--buy-btn); }
+.rm-btn.disabled { opacity: .32; filter: grayscale(.55); }
+
+/* minimized: title only (340 x 36) */
+.panel[data-state="min"] .rm-card,
+.panel[data-state="min"] .rm-foot { display: none; }
+.panel[data-state="min"] .rm-title { cursor: default; }
+
+/* ---------- 7.4 confirmation overlay: compact variant of the same card ---------- */
+.panel.dialog {
+  position: static;
+  width: 300px;
+  margin: 10px 0 24px;
+  padding: var(--pad-t) var(--pad-x) var(--pad-b);
+  box-shadow: 0 8px 26px rgba(0,0,0,.55), inset 0 0 0 1px #3a4857;
+}
+.dlg-h { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.dlg-h .t { font-size: 11pt; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; }
+.dlg-h .s { font-size: 8pt; color: var(--muted); }
+.panel.dialog .rm-card { margin: 0; padding: 10px var(--card-pad); }
+.dlg-row {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 20px; line-height: 20px; font-size: 9pt; color: var(--label);
+}
+.dlg-row .v {
+  font-family: Consolas, "Courier New", monospace; font-size: 9.5pt;
+  color: var(--text); font-weight: 600;
+}
+.dlg-row .v small { font-size: 7.5pt; font-weight: 400; color: var(--muted); }
+.dlg-foot { display: flex; gap: var(--btn-gap); margin-top: 12px; }
+.dlg-foot .rm-btn { height: 36px; }
+.dlg-foot .rm-btn .t { font-size: 10pt; letter-spacing: 1.1px; line-height: 14px; }
+.rm-btn.ghost { background: #333c47; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>HoekaGata <span style="color:#2ec4b6">AMIS</span> Risk Panel</h1>
+<p class="lead">
+  Visual requirement reference &mdash; Phase 1 (code audit) + Phase 2 (UI) specification.
+  This file is the layout contract for
+  <code>Main/MQL5/Experts/HokaGATA Risk Panel/HoekaGataRiskPanel.mq5</code>.
+  Every dimension, colour and wording below is binding: the MQL5 panel must reproduce it 1:1.
+  Nothing here executes trades; it is the agreed target before implementation.
+</p>
+
+<div class="alert">
+  <b>Naming finding (read first).</b> There is no file, class or symbol named <code>AMIS</code> in this
+  workspace or in the local MT5 data folder. The only signal engine present is
+  <code>Main/MQL5/Indicators/HokaGATA/HoekaGataIndicator.mq5</code> v2.04
+  (&ldquo;Engulfing Breakout&rdquo;, the MT5 port of <code>Source/HoekaGata_Engulfing.pine</code>).
+  This document therefore treats <b>AMIS = HoekaGataIndicator</b>. If AMIS is a different,
+  separately licensed indicator, stop here and supply its source or exported buffers &mdash; the audit
+  below must be re-run against it.
+</div>
+
+<h2>1. Phase 1 &mdash; Code audit</h2>
+
+<h3>1.1 What AMIS actually exposes</h3>
+<table class="doc">
+  <tr>
+    <th style="width:150px">Channel</th><th style="width:270px">Identifier</th>
+    <th style="width:90px">Available</th><th>Notes for the panel</th>
+  </tr>
+  <tr>
+    <td>Indicator buffer 0</td>
+    <td><code>BuyBuffer</code> &mdash; BUY entry price</td>
+    <td class="ok">yes</td>
+    <td><code>DRAW_NONE</code>; <code>EMPTY_VALUE</code> when no setup. Read via
+      <code>CopyBuffer(handle,0,shift,1,...)</code>.</td>
+  </tr>
+  <tr>
+    <td>Indicator buffer 1</td>
+    <td><code>SellBuffer</code> &mdash; SELL entry price</td>
+    <td class="ok">yes</td>
+    <td>Same contract as buffer 0. Never infer direction from buffer 0 falling back to 1.</td>
+  </tr>
+  <tr>
+    <td>Indicator buffer 2</td>
+    <td><code>SignalSLBuffer</code></td>
+    <td class="ok">yes</td>
+    <td>One shared SL buffer for both directions; direction comes from whichever entry buffer is set.</td>
+  </tr>
+  <tr>
+    <td>Indicator buffer 3</td>
+    <td><code>SignalTPBuffer</code></td>
+    <td class="ok">yes</td>
+    <td>Same as SL.</td>
+  </tr>
+  <tr>
+    <td>GlobalVariable (preferred)</td>
+    <td><code>HG_SIG_&lt;chartID&gt;_C_E / _C_SL / _C_TP / _C_D / _C_T</code></td>
+    <td class="ok">yes</td>
+    <td>Published every <code>OnCalculate</code>. <code>_D</code> = <code>1</code> BUY,
+      <code>-1</code> SELL, <code>0</code> none. <code>_T</code> = bar time &mdash; the staleness key.</td>
+  </tr>
+  <tr>
+    <td>GlobalVariable</td>
+    <td><code>HG_SIG_&lt;chartID&gt;_HB</code></td>
+    <td class="ok">yes</td>
+    <td>Heartbeat (<code>TimeCurrent()</code>). Its presence = &ldquo;AMIS connected&rdquo;.</td>
+  </tr>
+  <tr>
+    <td>GlobalVariable</td>
+    <td><code>HG_SIG_&lt;chartID&gt;_P_*</code></td>
+    <td class="ok">yes</td>
+    <td>Previous-bar slot (shift 1). Used only when <code>InpUseClosedBarSignal</code> is on.</td>
+  </tr>
+  <tr>
+    <td>Input (not readable at runtime)</td>
+    <td><code>InpRrRatio</code> (default 2.0)</td>
+    <td class="warn">mirror</td>
+    <td>MT5 gives no API to read another program&rsquo;s inputs. The EA keeps its own
+      <code>InpAmisRrConfigured</code> (default 2.0) and labels it &ldquo;configured&rdquo;.
+      The panel shows <b>both</b> configured and calculated R:R.</td>
+  </tr>
+  <tr>
+    <td>Chart objects</td>
+    <td><code>HoekaGATA_Engulf_*</code></td>
+    <td class="no">do not use</td>
+    <td>Names carry a per-setup index and are pruned by <code>InpKeepN</code>; the text is
+      &ldquo;BUY 2341.55&rdquo;, not a machine-readable double. Buffers/globals are strictly better.</td>
+  </tr>
+  <tr>
+    <td>Probability (per signal)</td>
+    <td>&mdash;</td>
+    <td class="no">no</td>
+    <td>The indicator&rsquo;s &ldquo;Probability&rdquo; footer is <b>not</b> a per-setup probability. It is the
+      replay win rate <code>nWin / (nWin + nLos)</code> over the whole visible history, computed inside
+      <code>EngulfStats</code>, and never published to a buffer or GlobalVariable.</td>
+  </tr>
+</table>
+
+<div class="note">
+  <b>Consequence for &sect;4 of the brief (Probability).</b> No per-signal probability exists, and since the
+  v2 layout the panel has <b>no probability row at all</b> &mdash; the approved screenshot shows only risk
+  management. The rule therefore simplifies: nothing is invented and nothing is relabelled; the historical
+  win rate stays inside the indicator&rsquo;s own statistics panel. If a future revision wants it back, the
+  smallest safe change is one extra key published per bar inside <code>PublishSignalState()</code>:
+  <code>GlobalVariableSet(SignalKey("C_PB"), nWin/(nWin+nLos)*100.0)</code> guarded against a zero
+  denominator, rendered as <span class="mono">69.7% <small>hist. win rate</small></span> &mdash; always
+  labelled historical, never predictive.
+</div>
+
+<h3>1.2 Integration risks found in the existing code</h3>
+<table class="doc">
+  <tr><th style="width:34%">Risk</th><th>Detail / mitigation</th></tr>
+  <tr>
+    <td>Entry is a <b>breakout-stop</b> price, not a market price</td>
+    <td>The state machine arms a setup at the pattern wick (<code>STATE_BUY_ARMED</code> =
+      &ldquo;pending at wick&rdquo;) and fills only when the body-break trigger is touched. So <code>_E</code>
+      is a <b>stop-entry</b> level. The confirmation dialog therefore states it in words
+      (<code>Order type: BUY STOP</code> / <code>SELL STOP</code>) and the pending order is the default; a
+      <code>Market</code> order exists only as an explicit user choice
+      (<span class="mono">Use market entry</span>, &sect;7.4). Silently converting a crossed stop-entry into a
+      market order is forbidden (&sect;6 of the brief).</td>
+  </tr>
+  <tr>
+    <td>Signals can be stale</td>
+    <td><code>_T</code> must equal <code>iTime(_Symbol,_Period,shift)</code>; the existing EA already enforces
+      this in <code>ReadPublishedSignalAtShift()</code>. The panel reuses that rule and shows an amber dot +
+      <code>STALE</code> tag instead of prices.</td>
+  </tr>
+  <tr>
+    <td>Price already crossed the intended entry</td>
+    <td>The EA dodges this with <code>CurrentMarketEntryPrice()</code>. Fine for a robot, but it is exactly the
+      silent re-qualification the brief forbids for a click-to-trade panel. Panel rule: block, show
+      <span class="mono">Entry crossed &mdash; enable &ldquo;use market&rdquo; to continue</span>, and re-enable
+      BUY/SELL only after the user ticks <span class="mono">Use market entry</span> in the dialog (&sect;7.4).</td>
+  </tr>
+  <tr>
+    <td>Lot sizing must not assume a fixed pip value</td>
+    <td><code>CalculateRiskLot()</code> uses <code>slDistance/tickSize*tickValue</code>, which ignores contract
+      size, account-currency conversion and commission. Panel spec: probe both directions with
+      <code>OrderCalcProfit()</code>, take the losing-side magnitude, add commission, then cross-check against
+      the tick-value formula and surface a warning when the two differ by more than 1%.</td>
+  </tr>
+  <tr>
+    <td>Balance-only risk in the existing EA</td>
+    <td><code>CalculateRiskLot()</code> in <code>HoekaGataAlgo_Trading.mqh</code> hardcodes
+      <code>AccountInfoDouble(ACCOUNT_BALANCE)</code> (line 481) and splits the risk by direction through
+      <code>InpRiskBuyPercent</code> / <code>InpRiskSellPercent</code>. The panel promotes the basis to an
+      editable <b>Account balance ($)</b> pill: it is prefilled from that call, and an override lets the user
+      model a smaller account without touching the terminal. Equity as a basis is <b>new</b> in the panel
+      (<code>InpRiskBasis = Balance | Equity</code>, default Balance, so the current behaviour is preserved);
+      the typed override only wins while it is non-zero.</td>
+  </tr>
+  <tr>
+    <td>Commission double counting</td>
+    <td>Panel spec: a single <b>Commission / lot ($)</b> pill defined as a <b>round turn</b> total, so there is
+      no per-side switch that could be read twice. A broker quoting per side is entered as
+      <code>2 &times; side rate</code>, and the pill is labelled as an estimate for that reason. The value
+      enters the sizing formula exactly once, inside the denominator (see &sect;7.2).</td>
+  </tr>
+  <tr>
+    <td>An indicator cannot trade</td>
+    <td>MQL5 indicators have no trade functions, so the panel must be an <b>Expert Advisor</b> even though its
+      visual target is &ldquo;the indicator&rsquo;s panel&rdquo;.</td>
+  </tr>
+</table>
+
+<h2>2. Architecture decision &mdash; Option D</h2>
+<p>
+  Buffers and globals already carry every number the panel needs, so <b>Option A</b> (buffers) and the
+  GlobalVariable channel are both viable and <b>no change to AMIS core logic is required</b>. Execution,
+  however, cannot live in an indicator, so the panel is a separate EA. That is <b>Option D</b>: AMIS keeps
+  generating signals; HoekaGata reads, sizes, displays and executes.
+</p>
+<ul>
+  <li><b>Read order</b> &mdash; <code>HG_SIG_&lt;chartID&gt;_*</code> first (cheap, no handle), then
+      <code>iCustom()</code> on the four buffers as fallback. Same precedence as
+      <code>ReadSignalAtShift()</code> in <code>HoekaGataAlgo_Trading.mqh</code>, so behaviour stays identical
+      to the existing robot.</li>
+  <li><b>Staleness</b> &mdash; accept a setup only when <code>_T == iTime(_Symbol,_Period,shift)</code> and the
+      heartbeat is younger than <code>InpSignalMaxAgeSeconds</code> (default 120).</li>
+  <li><b>No rewriting of AMIS</b> &mdash; the only optional patch is the probability key in &sect;1.1, and it is
+      additive: a new key, no buffer index change, no state-machine change.</li>
+  <li><b>Isolation</b> &mdash; panel objects use the <code>HGRP_</code> prefix (HoekaGata Risk Panel). The
+      indicator owns <code>HoekaGATA_Engulf_*</code> and the EA panel owns <code>HGP_</code>, so no name
+      collisions and <code>ObjectsDeleteAll(0, "HGRP_")</code> is safe on deinit.</li>
+  <li><b>Coexistence</b> &mdash; if <code>HoekaGataAlgo</code> is already trading the same chart, the panel warns
+      (<span class="mono">auto-EA active on chart</span>) to prevent duplicate positions.</li>
+</ul>
+
+<table class="doc">
+  <tr><th style="width:120px">File</th><th style="width:340px">Path</th><th>Responsibility</th></tr>
+  <tr>
+    <td>Main EA</td>
+    <td><code>Main/MQL5/Experts/HokaGATA Risk Panel/HoekaGataRiskPanel.mq5</code></td>
+    <td>Inputs, <code>OnInit/OnTick/OnTimer/OnChartEvent/OnDeinit</code>, wiring only.</td>
+  </tr>
+  <tr>
+    <td>Includes</td>
+    <td><code>.../Includes/RiskPanel_Config.mqh</code></td>
+    <td>Constants (the same numbers as this document), config keys, colour table.</td>
+  </tr>
+  <tr>
+    <td>Includes</td>
+    <td><code>.../Includes/RiskPanel_Signal.mqh</code></td>
+    <td>GlobalVariable/buffer reader, staleness rules, direction validation.</td>
+  </tr>
+  <tr>
+    <td>Includes</td>
+    <td><code>.../Includes/RiskPanel_Sizing.mqh</code></td>
+    <td><code>OrderCalcProfit()</code> sizing, commission model, volume normalisation, margin check.</td>
+  </tr>
+  <tr>
+    <td>Includes</td>
+    <td><code>.../Includes/RiskPanel_UI.mqh</code></td>
+    <td>Object creation, drag/minimise, state rendering (mirrors this board 1:1).</td>
+  </tr>
+  <tr>
+    <td>Includes</td>
+    <td><code>.../Includes/RiskPanel_Exec.mqh</code></td>
+    <td>Confirmation dialog, order submission, <code>CTrade</code> retcode handling.</td>
+  </tr>
+</table>
+
+<h2>3. The panel &mdash; 1:1 visual target</h2>
+<p>
+  340 &times; 457 px in the <code>VALID</code> state (36 title block = 12 top margin + 24 title row, 331 card,
+  10 title&rarr;card gap, 14 card&rarr;button gap, 54 buttons, 12 bottom pad). Each banner line adds 23 px
+  (8 px gap + 15 px line), so the card becomes 354 px (one line) or 369 px (two) and the panel grows to
+  480 or 495 px. On a typical 1 200&times;700 chart the panel covers roughly a fifth of the plot area, so
+  candles stay readable. Placed
+  <code>CORNER_RIGHT_UPPER</code>, <code>XDISTANCE = 12</code>, <code>YDISTANCE = 12</code> &mdash; the same
+  slot the AMIS statistics panel uses, except that panel is 180 px wide and sits on the left chart&rsquo;s
+  right edge only when <code>InpShowTable</code> is on.
+</p>
+<div class="note">
+  <b>Scope change in this revision.</b> The panel now shows <b>only</b> risk management and the two
+  execution buttons, exactly like the approved screenshot. AMIS entry / SL / TP prices are
+  <b>not</b> repeated here: they are already drawn on the chart by
+  <code>HoekaGATA_Engulf_*</code> and they are repeated one last time in the confirmation dialog
+  (&sect;7.4). The panel&rsquo;s job is the size of the bet, not the level of the entry.
+</div>
+
+<div class="switcher" id="switcher">
+  <span class="sw-lbl">Preview state</span>
+  <button class="sw on" data-state="buy">BUY valid</button>
+  <button class="sw" data-state="sell">SELL valid</button>
+  <button class="sw" data-state="nosignal">No signal</button>
+  <button class="sw" data-state="off">AMIS off</button>
+  <button class="sw" data-state="stale">Stale</button>
+  <button class="sw" data-state="crossed">Entry crossed</button>
+  <button class="sw" data-state="minlot">Min lot &gt; risk</button>
+  <button class="sw" data-state="margin">No margin</button>
+  <button class="sw" data-state="rejected">Rejected</button>
+  <button class="sw" data-state="min">Minimized</button>
+</div>
+
+<div class="stage" id="stage">
+  <div class="stage-cap" id="stageCap">XAUUSD &middot; M15 &mdash; state: BUY setup valid</div>
+  <div id="candles"></div>
+
+  <div class="panel" id="panel" data-state="buy">
+    <!-- ---------- title = drag handle ---------- -->
+    <div class="rm-title" id="panelTitle">
+      <span>Risk Management</span>
+      <span class="right">
+        <span class="rm-dot" id="dot"></span><span class="side" id="sideTag">BUY</span>
+      </span>
+    </div>
+
+    <!-- ---------- risk card ---------- -->
+    <div class="rm-card rm-body" id="panelBody">
+
+      <div class="rm-row bal">
+        <span class="k">Account balance ($)</span>
+        <span class="rm-pill" id="editBal">10000</span>
+      </div>
+
+      <div class="rm-row risk">
+        <span class="k">Risk per trade</span>
+        <span class="v" id="vRisk">1.0%</span>
+      </div>
+
+      <div class="rm-slider">
+        <div class="rm-track"></div>
+        <div class="rm-fill" id="slFill" style="width:11.1%"></div>
+        <div class="rm-knob" id="slKnob" style="left:11.1%"></div>
+      </div>
+      <div class="rm-ticks"><span>0.5%</span><span>2.5%</span><span>5%</span></div>
+
+      <div class="rm-row seg">
+        <span class="k">Lot sizing</span>
+        <span class="rm-seg" id="segLot">
+          <span class="b on">Auto</span><span class="b">Manual</span>
+        </span>
+      </div>
+
+      <div class="rm-row comm">
+        <span class="k">Commission / lot ($)</span>
+        <span class="rm-pill" id="editComm">7</span>
+      </div>
+
+      <div class="rm-div"></div>
+
+      <div class="rm-sum">
+        <div class="col">
+          <div class="rm-cap">Risk budget</div>
+          <div class="rm-big budget" id="vBudget">$100</div>
+        </div>
+        <div class="col">
+          <div class="rm-cap">Lot size</div>
+          <div class="rm-big" id="vLot">Auto</div>
+        </div>
+      </div>
+
+      <div class="rm-note" id="vNote">
+        Lot final dihitung dari jarak Entry&ndash;SL, tick value, contract specification,
+        dan estimasi komisi broker.
+      </div>
+
+      <div class="rm-banner hidden" id="banner">
+        <span class="ico">!</span><span id="bannerText"></span>
+      </div>
+    </div>
+
+    <!-- ---------- execution ---------- -->
+    <div class="rm-foot">
+      <div class="rm-btn sell disabled" id="btnSell">
+        <span class="t">SELL</span><span class="s" id="subSell">Execute SELL setup</span>
+      </div>
+      <div class="rm-btn buy" id="btnBuy">
+        <span class="t">BUY</span><span class="s" id="subBuy">Execute BUY setup</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2>4. State gallery &mdash; what each AMIS condition must look like</h2>
+<p>
+  Use the buttons above the mockup to preview each state. Rules that every state must obey:
+  the execution buttons never disappear (they only disable), a blocked state always carries a banner with
+  the <em>reason</em>, and no state ever shows a price that AMIS did not actually publish.
+</p>
+
+<table class="doc">
+  <tr>
+    <th style="width:132px">State</th><th style="width:220px">Trigger condition</th>
+    <th style="width:112px">Status dot</th><th>Panel behaviour</th>
+  </tr>
+  <tr>
+    <td class="ok">BUY valid</td>
+    <td><code>_C_D = 1</code>, <code>_C_T == iTime(shift)</code>, heartbeat fresh, entry above market</td>
+    <td>teal</td>
+    <td>Title tag <b style="color:#26a69a">BUY</b>. BUY button active with
+      <span class="mono">Execute BUY setup</span>; SELL dimmed with <span class="mono">no setup</span>.
+      LOT SIZE carries the number that BUY will send. Banner hidden.</td>
+  </tr>
+  <tr>
+    <td class="ok">SELL valid</td>
+    <td><code>_C_D = -1</code>, fresh, entry below market</td>
+    <td>teal</td>
+    <td>Title tag <b style="color:#e5484d">SELL</b>, SELL active, BUY dimmed. RISK BUDGET / LOT SIZE
+      recalculated from the <b>SELL</b> entry-to-SL distance only &mdash; never reuse the BUY numbers.</td>
+  </tr>
+  <tr>
+    <td>No signal</td>
+    <td><code>_C_D = 0</code>, or all four buffers <code>EMPTY_VALUE</code></td>
+    <td>teal (connected)</td>
+    <td>Title tag <span class="mono">&mdash;</span>. LOT SIZE shows <code>&mdash;</code> in muted grey; the
+      risk block still shows what the account and the slider alone imply. Both buttons dimmed with
+      <span class="mono">no setup</span>. Banner hidden (nothing is wrong yet).</td>
+  </tr>
+  <tr>
+    <td class="no">AMIS missing</td>
+    <td>no <code>iCustom</code> handle, or <code>HG_SIG_&lt;id&gt;_HB</code> never appeared</td>
+    <td>red</td>
+    <td>Title tag <span class="mono">&mdash;</span>, LOT SIZE <code>&mdash;</code>, both buttons dimmed with
+      <span class="mono">no AMIS</span>; banner <span class="mono">AMIS not found &mdash; attach
+      HoekaGataIndicator</span>. Sliders stay live so the account can be pre-configured before AMIS appears.</td>
+  </tr>
+  <tr>
+    <td class="warn">Stale</td>
+    <td><code>_C_T != iTime(shift)</code>, or heartbeat older than <code>InpSignalMaxAgeSeconds</code></td>
+    <td>amber</td>
+    <td>Title tag <code>STALE</code> in amber, risk % turns amber, both buttons dimmed; banner
+      <span class="mono">Signal stale &mdash; waiting for AMIS</span>.</td>
+  </tr>
+  <tr>
+    <td class="warn">Entry crossed</td>
+    <td>BUY: <code>_C_E &lt;= Ask</code>; SELL: <code>_C_E &gt;= Bid</code></td>
+    <td>amber</td>
+    <td>The panel shows no prices, so the reason has to be spelled out: banner
+      <span class="mono">Entry crossed &mdash; enable &ldquo;use market&rdquo; to continue</span>, both
+      buttons dimmed. The EA must not switch order type on its own.</td>
+  </tr>
+  <tr>
+    <td class="warn">Min lot &gt; risk</td>
+    <td><code>SYMBOL_VOLUME_MIN</code> would lose more than the budget</td>
+    <td>teal</td>
+    <td>LOT SIZE turns amber and appends <span class="mono">! &gt; budget</span>; banner states the exact
+      overshoot (<span class="mono">Min 0.10 risks $145.00 = 145% of budget</span>). The valid side&rsquo;s
+      button stays <b>enabled</b> so the dialog can open, but the dialog&rsquo;s confirm button is disabled until
+      the user ticks <span class="mono">Accept 0.10 lot &gt; budget</span> (&sect;7.4). Nothing is ever accepted
+      silently.</td>
+  </tr>
+  <tr>
+    <td class="no">No margin</td>
+    <td><code>OrderCalcMargin() &gt; ACCOUNT_MARGIN_FREE</code></td>
+    <td>teal</td>
+    <td>Banner in red: <span class="mono">Margin 1 240.00 &gt; free 480.00</span>; buttons dimmed. The panel
+      never renders a margin figure per se &mdash; only the blocker, which is the actionable part.</td>
+  </tr>
+  <tr>
+    <td class="no">Rejected</td>
+    <td>last <code>CTrade::ResultRetcode()</code> not <code>TRADE_RETCODE_DONE</code></td>
+    <td>teal</td>
+    <td>Banner in red for 6 s: <span class="mono">Order failed: 10019 (no money)</span> &mdash; numeric code
+      <b>and</b> text. Panel stays interactive so the user can retry.</td>
+  </tr>
+  <tr>
+    <td>Minimized</td>
+    <td>user double-clicks the title</td>
+    <td>teal</td>
+    <td>Title only (340 &times; 36). Card and buttons hidden; state remembered in
+      <code>PanelMinimized</code> so the next attach restores it.</td>
+  </tr>
+</table>
+
+<h2>5. Row map &mdash; every element, its height and its real source</h2>
+<p>
+  &ldquo;Source&rdquo; is the only place a value may come from. If a source is unavailable the cell renders
+  <code>&mdash;</code>; it never falls back to a constant.
+</p>
+<table class="doc">
+  <tr>
+    <th style="width:44px">y</th><th style="width:56px">h</th><th style="width:196px">Element / object</th>
+    <th style="width:210px">Value source</th><th>Formatting</th>
+  </tr>
+  <tr><td>12</td><td>24</td><td><code>HGRP_TITLE</code> &ldquo;RISK MANAGEMENT&rdquo; + <code>HGRP_DOT</code> +
+      <code>HGRP_SIDE</code></td>
+    <td>literal; dot = <code>GlobalVariableCheck(HG_SIG_&lt;id&gt;_HB)</code> + staleness;
+      side = <code>_C_D</code></td>
+    <td>12 pt bold, letter-spacing .9 px, uppercase; dot 5 px; side tag 7.5 pt
+      (BUY / SELL / <code>&mdash;</code>)</td></tr>
+  <tr><td>36</td><td>10</td><td>title &rarr; card gap</td><td>&mdash;</td><td><code>PANEL_TITLE_GAP</code></td></tr>
+  <tr><td>46</td><td>331</td><td><code>HGRP_CARD</code> (card background)</td><td>&mdash;</td>
+    <td><code>CARD_BG</code> + 1 px <code>CARD_BORDER</code>; 8 px radius in HTML,
+      <b>square</b> in MT5 (see &sect;6)</td></tr>
+  <tr><td>60</td><td>38</td><td>&ldquo;Account balance ($)&rdquo; + <code>HGRP_EDIT_BAL</code></td>
+    <td><code>ACCOUNT_BALANCE</code> (or <code>ACCOUNT_EQUITY</code> when
+      <code>InpRiskBasis</code> = equity), then user override</td>
+    <td>label 9 pt; pill 124&times;32, radius 16, left-aligned 10 pt; plain integer
+      <code>10000</code></td></tr>
+  <tr><td>104</td><td>22</td><td>&ldquo;Risk per trade&rdquo; + <code>HGRP_RISK_VAL</code></td>
+    <td><code>RiskPercent</code></td>
+    <td>value 11.5 pt bold <code>ACCENT</code>, one decimal <code>1.0%</code>; amber when at a
+      clamp limit</td></tr>
+  <tr><td>130</td><td>14</td><td><code>HGRP_SLIDER_TRACK</code> / <code>_FILL</code> / <code>_KNOB</code></td>
+    <td><code>RiskPercent</code> mapped on 0.5 &ndash; 5.0</td>
+    <td>track 4 px <code>SLIDER_TRACK</code>, fill <code>SLIDER_FILL</code>, knob 22 px
+      <code>SLIDER_KNOB</code>; knob x = <code>(pct &minus; 0.5) / 4.5</code></td></tr>
+  <tr><td>144</td><td>14</td><td>tick labels 0.5% / 2.5% / 5%</td>
+    <td>constants (start / middle / end)</td><td>8 pt muted, Consolas</td></tr>
+  <tr><td>166</td><td>32</td><td>&ldquo;Lot sizing&rdquo; + <code>HGRP_SEG_LOT_AUTO</code> /
+      <code>HGRP_SEG_LOT_MAN</code></td>
+    <td><code>LotMode</code> (auto / manual)</td>
+    <td>segment 160&times;30, radius 15; active chip <code>SEG_ACTIVE_BG</code>, white bold</td></tr>
+  <tr><td>204</td><td>38</td><td>&ldquo;Commission / lot ($)&rdquo; + <code>HGRP_EDIT_COMM</code></td>
+    <td><code>CommissionPerLot</code> &mdash; <b>round turn</b> in account currency</td>
+    <td>pill 124&times;32; <code>7</code></td></tr>
+  <tr><td>256</td><td>1</td><td>hairline</td><td>&mdash;</td><td><code>#2b333f</code> (card divider)</td></tr>
+  <tr><td>271</td><td>52</td><td>&ldquo;RISK BUDGET&rdquo; <code>HGRP_BUDGET</code> /
+      &ldquo;LOT SIZE&rdquo; <code>HGRP_LOT</code></td>
+    <td><code>basis * pct / 100</code>; <code>NormalizeVolume()</code> or the literal
+      <code>Auto</code> in auto mode</td>
+    <td>caption 8 pt caps, letter-spacing .8 px; value 17 pt bold; budget salmon
+      <code>BUDGET_VALUE</code>, lot white; amber + 14 pt when the size overshoots</td></tr>
+  <tr><td>333</td><td>30</td><td>note (2 lines)</td>
+    <td>literal Indonesian copy</td><td>8.5 pt muted, 15 px line height</td></tr>
+  <tr><td>371</td><td>15+</td><td><code>HGRP_BANNER</code> (hidden when nothing to say)</td>
+    <td>worst active validation result</td>
+    <td>amber warning / red blocker, 8 pt, 15 px per line; +8 px gap above</td></tr>
+  <tr><td>391</td><td>54</td><td><code>HGRP_BTN_SELL</code> / <code>HGRP_BTN_BUY</code></td>
+    <td>enabled only when that side has a valid, fresh, tradeable setup</td>
+    <td>half width each, <code>PANEL_BUTTON_GAP</code> = 10 px; title 13 pt bold
+      letter-spacing 1.6 px, sub-line 8 pt &ldquo;Execute BUY setup&rdquo;</td></tr>
+</table>
+<div class="note">
+  <b>Height is not fixed.</b> 457 px is the <em>no-banner</em> height. The banner is the only variable
+  element, so the MQL5 layout must compute <code>totalH = PANEL_H + bannerH</code> and place the footer
+  at <code>y = totalH &minus; PANEL_BUTTON_H &minus; PANEL_PAD_BOTTOM</code> instead of hardcoding 391.
+  Measured cases: no banner 457 px; one-line banner 480 px (AMIS missing, stale, crossed, rejected, no margin);
+  two-line banner 495 px (min-lot overshoot, whose message carries the accept-overshoot suffix).
+</div>
+
+<h2>6. Geometry &amp; palette</h2>
+<p>
+  These are the constants <code>RiskPanel_Config.mqh</code> must declare. The panel is
+  <b>not</b> scalable &mdash; MQL5 label fonts are pixel-anchored and a resizable panel would desynchronise
+  every row offset. The only size variants are <em>expanded</em> (457 px + banner) and <em>collapsed</em>
+  (340 &times; 36).
+</p>
+<table class="doc">
+  <tr><th style="width:230px">Constant</th><th style="width:80px">Value</th><th>Used for</th></tr>
+  <tr><td><code>PANEL_W</code></td><td>340 px</td><td>total width; card is <code>PANEL_W &minus; 2*PANEL_PAD_X</code> = 312, card content 284</td></tr>
+  <tr><td><code>PANEL_H</code></td><td>457 px</td><td>= 12 top + 24 title + 10 gap + 331 card + 14 gap + 54 buttons + 12 bottom (+23 per banner line)</td></tr>
+  <tr><td><code>PANEL_TITLE_H</code></td><td>24 px</td><td>&ldquo;RISK MANAGEMENT&rdquo; row; doubled as the drag handle, minimized height = 36 px</td></tr>
+  <tr><td><code>PANEL_TITLE_GAP</code></td><td>10 px</td><td>gap between title and card</td></tr>
+  <tr><td><code>PANEL_CARD_PAD</code></td><td>14 px</td><td>card inner padding</td></tr>
+  <tr><td><code>PANEL_ROW_H</code></td><td>38 px</td><td>label + pill rows (balance, commission)</td></tr>
+  <tr><td><code>PANEL_RISK_ROW_H</code></td><td>22 px</td><td>&ldquo;Risk per trade&rdquo; + value row</td></tr>
+  <tr><td><code>PANEL_PILL_W / H</code></td><td>124 / 32 px</td><td>pill input field; radius 16 px in HTML, square in MT5</td></tr>
+  <tr><td><code>PANEL_SLIDER_H</code></td><td>14 px</td><td>slider row (4 px track, 22 px knob overhang)</td></tr>
+  <tr><td><code>PANEL_TICKS_H</code></td><td>14 px</td><td>0.5% / 2.5% / 5% tick labels</td></tr>
+  <tr><td><code>PANEL_SEG_W / H</code></td><td>160 / 30 px</td><td>Auto | Manual segmented control</td></tr>
+  <tr><td><code>PANEL_SUM_H</code></td><td>52 px</td><td>RISK BUDGET / LOT SIZE block</td></tr>
+  <tr><td><code>PANEL_NOTE_H</code></td><td>30 px</td><td>2-line note under the summary</td></tr>
+  <tr><td><code>PANEL_BANNER_H</code></td><td>15 px</td><td>per banner line; hidden when there is nothing to report</td></tr>
+  <tr><td><code>PANEL_BUTTON_H</code></td><td>54 px</td><td>SELL / BUY side by side, <code>PANEL_BUTTON_GAP</code> = 10 px, radius 6 px</td></tr>
+  <tr><td><code>PANEL_PAD_X</code></td><td>14 px</td><td>outer left/right padding</td></tr>
+  <tr><td><code>PANEL_PAD_TOP</code></td><td>12 px</td><td>space above the title row; minimized height =
+    <code>PANEL_PAD_TOP + PANEL_TITLE_H</code> = 36 px</td></tr>
+  <tr><td><code>PANEL_PAD_BOTTOM</code></td><td>12 px</td><td>bottom padding under the buttons</td></tr>
+  <tr><td><code>PANEL_MARGIN_X / Y</code></td><td>12 px</td><td><code>OBJPROP_XDISTANCE / YDISTANCE</code>, corner <code>CORNER_RIGHT_UPPER</code></td></tr>
+  <tr><td><code>PANEL_FONT_BODY</code></td><td>9 pt</td><td>row labels; pill values 10 pt Consolas</td></tr>
+  <tr><td><code>PANEL_FONT_TITLE</code></td><td>12 pt</td><td>panel title (bold); summary values 17 pt; risk value 11.5 pt</td></tr>
+  <tr><td><code>PANEL_RISK_MIN / MAX / STEP</code></td><td>0.5 / 5.0 / 0.1 %</td><td>slider domain; the value is clamped to the same range on ENDEDIT</td></tr>
+</table>
+<div class="note">
+  <b>Corners are the one unavoidable difference.</b> <code>OBJ_RECTANGLE_LABEL</code> has no
+  <code>border-radius</code>, so the card, pills and segment render as plain rectangles in MT5 while this
+  mockup shows 8 px / 16 px radius. Keep the <b>geometry and colours</b> identical; do not fake the radius
+  with extra objects. The slider knob is the only element that needs a shape, and it is an
+  <code>OBJ_BITMAP_LABEL</code> (<code>Images\HGRP_knob.bmp</code>, 28&times;28 = 22 px
+  <code>SLIDER_KNOB</code> + 3 px <code>KNOB_RING</code>, keyed on the
+  <code>CARD_BG</code> colour). If the asset is missing, fall back to an 18&times;18
+  <code>OBJ_BUTTON</code> with <code>SLIDER_KNOB</code> as background &mdash; square but usable.
+</div>
+
+<h3>Palette</h3>
+<table class="doc">
+  <tr><th style="width:150px">Swatch</th><th style="width:150px">MQL5 constant</th><th>Role</th></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#10151c;border:1px solid #2a3441"></span></td>
+      <td><code>PANEL_BG = C'16,21,28'</code></td><td>panel background outside the card &mdash; opaque (MT5 labels have no alpha)</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#1a2029;border:1px solid #262e39"></span></td>
+      <td><code>CARD_BG = C'26,32,41'</code></td><td>the risk card body, one shade lighter than the panel</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#262e39"></span></td>
+      <td><code>CARD_BORDER = C'38,46,57'</code></td><td>1 px outline of the card</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#3b4655"></span></td>
+      <td><code>PILL_BORDER = C'59,70,85'</code></td><td>pill inputs and the Auto | Manual container</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#34363c"></span></td>
+      <td><code>SEG_ACTIVE_BG = C'52,54,60'</code></td><td>active lot-sizing chip</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#4b5563"></span></td>
+      <td><code>SLIDER_TRACK = C'75,85,99'</code></td><td>unfilled slider track</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#e9eef4"></span></td>
+      <td><code>SLIDER_FILL = C'233,238,244'</code></td><td>filled part of the track (left of the knob)</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#05070a"></span></td>
+      <td><code>SLIDER_KNOB = C'5,7,10'</code></td><td>knob fill; a 3 px <code>KNOB_RING</code> outline goes around it</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#2f353d"></span></td>
+      <td><code>KNOB_RING = C'47,53,61'</code></td><td>3 px ring around the knob &mdash; an opaque blend of
+      the fill over <code>CARD_BG</code>, because MT5 cannot draw a translucent glow</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#e6ebf1"></span></td>
+      <td><code>PANEL_TEXT = C'230,235,241'</code></td><td>title, summary values, pill text</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#d3dae3"></span></td>
+      <td><code>PANEL_LABEL = C'211,218,227'</code></td><td>row labels (&ldquo;Account balance ($)&rdquo;, &ldquo;Risk per trade&rdquo;&hellip;)</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#8a97a6"></span></td>
+      <td><code>PANEL_MUTED = C'138,151,166'</code></td><td>captions (RISK BUDGET / LOT SIZE), tick labels, note</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#2ec4b6"></span></td>
+      <td><code>PANEL_ACCENT = C'46,196,182'</code></td><td>risk percentage value, connection dot</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#f65b5f"></span></td>
+      <td><code>BUDGET_VALUE = C'246,91,95'</code></td><td>the RISK BUDGET figure (salmon, always)</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#b3262c"></span></td>
+      <td><code>BTN_SELL_BG = C'179,38,44'</code></td><td>SELL button fill (text pure white)</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#0f7a55"></span></td>
+      <td><code>BTN_BUY_BG = C'15,122,85'</code></td><td>BUY button fill (text pure white)</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#26a69a"></span></td>
+      <td><code>PANEL_BUY = C'38,166,154'</code></td><td>BUY side tag next to the title</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#e5484d"></span></td>
+      <td><code>PANEL_SELL = C'229,72,77'</code></td><td>SELL side tag next to the title</td></tr>
+  <tr><td><span style="display:inline-block;width:34px;height:12px;background:#e0a02a"></span></td>
+      <td><code>PANEL_WARNING = C'224,160,42'</code></td><td>stale signal, min-lot overshoot, clamp limits</td></tr>
+</table>
+
+<h2>7. Controls, sizing and execution behaviour</h2>
+
+<h3>7.1 Every control, and what it must do</h3>
+<table class="doc">
+  <tr><th style="width:150px">Control</th><th style="width:140px">Event</th><th>Contract</th></tr>
+  <tr><td>Account balance pill <code>HGRP_EDIT_BAL</code></td><td><code>CHARTEVENT_OBJECT_ENDEDIT</code></td>
+    <td>Prefilled from <code>ACCOUNT_BALANCE</code> (or <code>ACCOUNT_EQUITY</code> when
+      <code>InpRiskBasis</code> = equity). The user may overwrite it to model a smaller account; the override
+      is persisted as <code>BalanceOverride</code> and shown unchanged across attaches. Clearing the field
+      restores the live account figure. Clamp <code>1 &ndash; 1e9</code>; garbage &rarr; keep previous.
+      Recomputes budget &rarr; lots in the same repaint.</td></tr>
+  <tr><td>Risk slider <code>HGRP_SLIDER_*</code></td>
+    <td><code>CHARTEVENT_MOUSE_MOVE</code> (down) / <code>OBJECT_CLICK</code> (track)</td>
+    <td><code>RiskPercent = 0.5 + (x &minus; trackLeft) / trackW * 4.5</code>, snapped to
+      <code>PANEL_RISK_STEP</code> (0.1) and clamped to <code>0.5 &ndash; 5.0</code>. Saved as
+      <code>RiskPercent</code>. The value label and the knob move together; releasing the mouse ends the
+      drag. A click anywhere on the track jumps the knob there. Typed input is not required &mdash; the
+      cell is a display, not an <code>OBJ_EDIT</code>.</td></tr>
+  <tr><td>Commission field <code>HGRP_EDIT_COMM</code></td><td><code>ENDEDIT</code></td>
+    <td>Account currency per lot for a <b>round turn</b> (open + close). Clamp 0 &ndash; 10 000. Empty or
+      garbage &rarr; keep previous. Always rendered with the note that it is an <b>estimate</b>: MT5 exposes
+      no reliable per-symbol commission API, so the field is the user's contract with their broker. A broker
+      that quotes per side must be entered as <code>2 &times; side rate</code>.</td></tr>
+  <tr><td><code>Auto | Manual</code> lot sizing</td><td>click</td>
+    <td>Auto: the RISK BUDGET / LOT SIZE block shows the word <code>Auto</code> and the number lives in the
+      confirmation dialog. Manual: the summary switches to the editable volume, validated against
+      min/max/step, and any mismatch against the budget becomes the amber banner, never a silent
+      acceptance.</td></tr>
+  <tr><td>Drag title <code>HGRP_TITLE</code></td><td><code>CHARTEVENT_MOUSE_MOVE</code> + <code>CHARTEVENT_OBJECT_CLICK</code></td>
+    <td>Repositions every <code>HGRP_*</code> object by a constant delta, clamped to the chart. Saved as
+      <code>PanelX / PanelY</code>. The same pattern the existing <code>HoekaGataAlgo_Panel</code> already
+      uses (<code>MovePanelTo()</code>), so no new drag logic is invented.</td></tr>
+  <tr><td>Collapse (double-click the title)</td><td><code>CHARTEVENT_OBJECT_CLICK</code></td>
+    <td>Hides the card and the footer, keeps the title (340 &times; 36), saved as
+      <code>PanelMinimized</code>. The screenshot has no minimize glyph, so the title itself is the target;
+      it must print <span class="mono">double-click to collapse</span> in the tooltip on first attach.</td></tr>
+  <tr><td>BUY / SELL</td><td>click</td>
+    <td>Runs the execution flow in &sect;7.3. Debounced: a second click within
+      <code>PANEL_CLICK_DEBOUNCE_MS</code> (600 ms) is ignored, and the button shows
+      <span class="mono">working&hellip;</span> in its sub-line until <code>OrderSend</code> returns.</td></tr>
+</table>
+
+<h3>7.2 Position sizing algorithm (the numbers behind 0.18)</h3>
+<ol>
+  <li><code>basis = BalanceOverride &gt; 0 ? BalanceOverride : (RiskBasis == Equity ? ACCOUNT_EQUITY : ACCOUNT_BALANCE)</code></li>
+  <li><code>budget = basis * riskPct / 100</code></li>
+  <li>SL distance <code>d = |entry &minus; sl|</code>, normalised to
+      <code>SYMBOL_TRADE_TICK_SIZE</code>. Reject <code>d &lt;= 0</code>.</li>
+  <li>Probe <b>one lot</b> both ways:
+      <code>OrderCalcProfit(ORDER_TYPE_BUY, sym, 1.0, entry, sl, pBuy)</code> and the same with
+      <code>ORDER_TYPE_SELL</code>; take <code>lossPerLot = max(|pBuy|, |pSell|)</code> for the probe that
+      represents the proposed direction losing. This is the step the existing
+      <code>slDistance/tickSize*tickValue</code> formula cannot do for cross-currency pairs.</li>
+  <li><code>rawLot = budget / (lossPerLot + commRoundTurn)</code></li>
+  <li>Floor to <code>SYMBOL_VOLUME_STEP</code>, clamp to <code>[VOLUME_MIN, VOLUME_MAX]</code>,
+      round to the step's decimals.</li>
+  <li>If the clamp had to <b>raise</b> the volume to <code>VOLUME_MIN</code>, re-check
+      <code>VOLUME_MIN * (lossPerLot + comm) &gt; budget</code> &rarr; state <b>Min lot &gt; risk</b>. Never round
+      up silently.</li>
+  <li><code>OrderCalcMargin()</code> on the final volume; compare with <code>ACCOUNT_MARGIN_FREE</code>.</li>
+  <li>Summary rows are recomputed from the <b>final, normalised</b> volume &mdash; not from the raw one &mdash;
+      so <em>Loss at SL</em> is what the broker will actually charge.</li>
+</ol>
+<div class="note">
+  <b>Worked example used by this mockup</b> (XAUUSD, 1 lot = 100 oz, tick 0.01 = $1.00):
+  entry 2341.55, SL 2336.10 &rarr; <code>d = 5.45</code> &rarr; <code>lossPerLot = 545.00</code>;
+  budget 1 % of 10 000 = 100.00; commission 7.00 round turn &rarr;
+  <code>rawLot = 100 / 552 = 0.1812</code> &rarr; step 0.01 &rarr; <b>0.18</b>.
+  Loss at SL = <code>0.18*545 + 0.18*7 = 98.10 + 1.26 = 99.36</code>. Profit at TP
+  (<code>d = 10.60</code>) = <code>0.18*1060 &minus; 1.26 = 189.54</code>. Margin at 1:100 =
+  <code>0.18*100*2341.55/100 = 421.48</code> &mdash; affordable on 10 000, so the margin gate only trips once
+  free margin falls below it (several open positions, or the smaller account modelled with the balance
+  override).
+</div>
+
+<h3>7.3 Execution flow &mdash; BUY and SELL are the same path, opposite data</h3>
+<table class="doc">
+  <tr><th style="width:44px">#</th><th style="width:230px">Step</th><th>Rule</th></tr>
+  <tr><td>1</td><td>Read the setup</td>
+    <td>SELL button -> <code>_C_D</code> must be <b>&minus;1</b> and the price pair comes from
+      <code>_C_E / _C_SL / _C_TP</code> <b>of that same snapshot</b>. BUY -> <code>_C_D == 1</code>.
+      A snapshot is read atomically into a struct, then re-checked after sizing; if <code>_T</code> changed in
+      between, abort with <span class="mono">signal changed, retry</span>.</td></tr>
+  <tr><td>2</td><td>Validate direction geometry</td>
+    <td>BUY: <code>SL &lt; entry &lt; TP</code>. SELL: <code>SL &gt; entry &gt; TP</code>. Any violation &rarr;
+      <span class="mono">invalid AMIS levels</span>, no order.</td></tr>
+  <tr><td>3</td><td>Validate freshness</td>
+    <td><code>_T == iTime()</code> and heartbeat age &le; <code>InpSignalMaxAgeSeconds</code>.
+      Also reject when the setup belongs to a previous bar and <code>InpUseClosedBarSignal</code> is off.</td></tr>
+  <tr><td>4</td><td>Validate entry mode</td>
+    <td><b>Pending stop</b> (default): BUY needs <code>entry &gt; Ask + stops_level</code> &rarr;
+      <code>ORDER_TYPE_BUY_STOP</code>; SELL needs <code>entry &lt; Bid &minus; stops_level</code> &rarr;
+      <code>ORDER_TYPE_SELL_STOP</code>. <b>Market</b> is only reachable through the dialog&rsquo;s
+      <span class="mono">Use market entry</span> tick (&sect;7.4): without that tick a crossed entry is state
+      <b>Entry crossed</b> and the flow stops.</td></tr>
+  <tr><td>5</td><td>Size the volume</td>
+    <td>&sect;7.2, using the SL distance of the chosen side only.</td></tr>
+  <tr><td>6</td><td>Validate the broker envelope</td>
+    <td>Volume min/max/step, <code>SYMBOL_TRADE_STOPS_LEVEL</code>, <code>SYMBOL_FILLING_MODE</code>,
+      <code>SYMBOL_EXPIRATION_MODE</code> for pending orders, <code>TERMINAL_TRADE_ALLOWED</code>,
+      <code>MQL_TRADE_ALLOWED</code>, <code>ACCOUNT_TRADE_EXPERT</code>, and free margin.</td></tr>
+  <tr><td>7</td><td>Confirm</td>
+    <td>When <code>InpConfirmOrders = true</code> (default), show the summary dialog below. It must re-print the
+      exact numbers that will be sent, including the commission estimate, the overshoot tick when the minimum
+      volume exceeds the budget, and the <span class="mono">Use market entry</span> tick when the entry is
+      already crossed.</td></tr>
+  <tr><td>8</td><td>Send</td>
+    <td><code>CTrade::Buy</code>/<code>Sell</code> for market, <code>BuyStop</code>/<code>SellStop</code> for
+      pending (with <code>ORDER_TIME_GTC</code> or the configured expiry). SL/TP normalised to
+      <code>_Digits</code>, volume normalised to the step. Comment <code>HGRP-Buy</code> /
+      <code>HGRP-Sell</code>, magic from <code>InpMagicNumber</code>.</td></tr>
+  <tr><td>9</td><td>Check the retcode</td>
+    <td><code>TRADE_RETCODE_DONE</code> / <code>_PLACED</code> &rarr; success banner (teal, 4 s) with ticket.
+      Anything else &rarr; red banner <span class="mono">code (text)</span> plus the full
+      <code>trade.ResultRetcodeDescription()</code> in the Experts log.</td></tr>
+  <tr><td>10</td><td>Report</td>
+    <td>Never claim success on <code>true</code> alone: MQL5 returns <code>true</code> for requests that the
+      server later rejects. The ticket and the retcode are the only proof.</td></tr>
+</table>
+
+<h3>7.4 Confirmation dialog (child window, not a chart object)</h3>
+<p>
+  Rendered with <code>OBJ_RECTANGLE_LABEL</code> + <code>OBJ_LABEL</code> + <code>OBJ_BUTTON</code>, prefixed
+  <code>HGRP_DLG_</code>, centred over the chart, closing on <em>Cancel</em>, <code>Esc</code>, or a symbol
+  change. It is the last place a wrong direction can be caught, so the side is repeated three times:
+  header, entry row and the coloured confirm button.
+</p>
+<p>
+  <b>Two conditional rows</b> sit between the commission row and the estimate banner, and only one can ever be
+  present at a time. <span class="mono">Use market entry (2 342.10)</span> replaces the stop-entry when the
+  market has already crossed <code>_E</code>; the confirm button stays disabled until it is ticked, and ticking
+  it changes <code>Order type</code> to <code>BUY</code> / <code>SELL</code> (never silently). <span
+  class="mono">Accept 0.10 lot &gt; budget</span> replaces it when <code>VOLUME_MIN</code> overshoots the risk
+  budget. Both are reset on every dialog open &mdash; acceptance is per order, never remembered.
+</p>
+
+<div class="panel dialog" id="dialog">
+  <div class="dlg-h">
+    <span class="t" style="color:#26a69a">Confirm BUY</span>
+    <span class="s">XAUUSD &middot; M15 &middot; 0.18 lot</span>
+  </div>
+  <div class="rm-card">
+    <div class="dlg-row"><span>Order type</span><span class="v">BUY STOP</span></div>
+    <div class="dlg-row"><span>Entry</span><span class="v v-buy">2 341.55</span></div>
+    <div class="dlg-row"><span>Stop Loss</span><span class="v v-sell">2 336.10</span></div>
+    <div class="dlg-row"><span>Take Profit</span><span class="v v-buy">2 352.15</span></div>
+    <div class="dlg-row"><span>Risk</span><span class="v v-neg">&minus;$99.36 <small>1.0%</small></span></div>
+    <div class="dlg-row"><span>Reward</span><span class="v v-pos">+$189.54</span></div>
+    <div class="dlg-row"><span>Commission</span><span class="v v-mute">$1.26 <small>est.</small></span></div>
+    <div class="rm-banner" style="margin-top:8px">
+      <span class="ico">i</span><span>Commission is an estimate from the panel field, not a broker quote.</span>
+    </div>
+  </div>
+  <div class="dlg-foot">
+    <div class="rm-btn ghost"><span class="t">CANCEL</span></div>
+    <div class="rm-btn buy"><span class="t">BUY 0.18</span></div>
+  </div>
+</div>
+
+<h2>8. Phase 4 &mdash; verification checklist</h2>
+<p>Every row must be reproduced on Strategy Tester first, then on a demo account. No live execution.</p>
+<table class="doc">
+  <tr><th style="width:40px">&#9744;</th><th style="width:250px">Case</th><th>Expected result</th></tr>
+  <tr><td>&#9744;</td><td>BUY setup</td><td>Green <code>BUY</code> tag beside the title, BUY enabled, SELL dimmed, volume from BUY entry&minus;SL.</td></tr>
+  <tr><td>&#9744;</td><td>SELL setup</td><td>Red <code>SELL</code> tag, SELL enabled, BUY dimmed, volume from SELL entry&minus;SL. No BUY number leaks.</td></tr>
+  <tr><td>&#9744;</td><td>No signal / invalid values</td><td>Tag <code>&mdash;</code>, LOT SIZE <code>&mdash;</code>, both buttons dimmed, no order on click.</td></tr>
+  <tr><td>&#9744;</td><td>Missing indicator buffers</td><td>Dot red, banner <span class="mono">AMIS not found</span>, no <code>iCustom</code> handle leak (handle released on failure).</td></tr>
+  <tr><td>&#9744;</td><td>Market entry</td><td>Order at Ask/Bid, SL/TP exactly as published; retcode logged.</td></tr>
+  <tr><td>&#9744;</td><td>Pending entry</td><td>BUY_STOP above / SELL_STOP below, expiry respected, ticket shown.</td></tr>
+  <tr><td>&#9744;</td><td>Market price crossed the intended entry</td><td>Blocked, amber banner, <b>no</b> silent conversion to market.</td></tr>
+  <tr><td>&#9744;</td><td>Risk slider 0.5 &rarr; 3.0</td><td>Knob, teal %, RISK BUDGET and LOT SIZE update in one repaint; 3.0 % still lands on a valid step; ends clamped at 5.0.</td></tr>
+  <tr><td>&#9744;</td><td>Account balance typed</td><td>Budget scales instantly, override survives re-attach, clearing the field restores the live balance.</td></tr>
+  <tr><td>&#9744;</td><td>Commission edited</td><td>Budget-implied lot shrinks as the field grows; empty / garbage keeps the previous value.</td></tr>
+  <tr><td>&#9744;</td><td>Different symbol specs</td><td>EURUSD (0.01 step), XAUUSD (0.01), indices (0.1 / 1.0): volume decimals follow the step; no hardcoded pip value.</td></tr>
+  <tr><td>&#9744;</td><td>Minimum lot exceeds the budget</td><td>LOT SIZE turns amber with <span class="mono">! &gt; budget</span>; order blocked until explicitly accepted.</td></tr>
+  <tr><td>&#9744;</td><td>Insufficient margin</td><td>Red blocker banner; no request is sent.</td></tr>
+  <tr><td>&#9744;</td><td>Broker rejection (e.g. 10019 / 10018)</td><td>Red banner with code and text, panel still usable, nothing reported as success.</td></tr>
+  <tr><td>&#9744;</td><td>Repeated button clicks</td><td>Debounce 600 ms; exactly one position; second click ignored while <span class="mono">working&hellip;</span>.</td></tr>
+  <tr><td>&#9744;</td><td>Symbol / timeframe change</td><td><code>OnDeinit</code> + <code>OnInit</code> cycle: handle released, all <code>HGRP_*</code> removed, panel recreated with the new symbol/TF.</td></tr>
+  <tr><td>&#9744;</td><td>MT5 restart / re-attach</td><td>Panel position, risk %, balance override, commission and collapsed state restored; no duplicate objects (count of <code>HGRP_*</code> is stable across attaches).</td></tr>
+  <tr><td>&#9744;</td><td>Chart print / screenshot</td><td>Values legible on a dark template; <code>OBJPROP_BACK = false</code> so the panel is never hidden behind candles.</td></tr>
+</table>
+
+<h2>9. Open items &mdash; needed before Phase 3</h2>
+<ol>
+  <li><b>AMIS identity.</b> Confirm AMIS = <code>HoekaGataIndicator</code>. If it is a separate product, its
+      buffer map is required; the panel can bind to it without code changes only if the map matches
+      (entry BUY, entry SELL, SL, TP).</li>
+  <li><b>Probability patch.</b> Optional now: the v2 panel has no probability row (&sect;1.1), so the
+      <code>C_PB</code> publication is only needed if a later revision brings the row back. Default: reject,
+      nothing is published, no placeholder is rendered.</li>
+  <li><b>Commission reality.</b> One number per lot in account currency, defined as a <b>round turn</b> total.
+      The panel only accepts the round-turn figure; a per-side broker quote must be doubled before it is typed
+      in. Confirm the broker convention before the first live test.</li>
+  <li><b>Coexistence.</b> Will <code>HoekaGataAlgo</code> keep trading the same chart? If yes, the panel warns
+      and uses a different magic number to avoid adopting its positions.</li>
+  <li><b>Pending-order policy.</b> GTC vs expiry (bars or minutes), and whether an unfilled stop should be
+      cancelled when AMIS publishes a new setup (<code>InpCancelOpp</code> already cancels the visual setup;
+      the order must follow the same rule).</li>
+</ol>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Documentation-only preview logic. This is NOT the MQL5 implementation; it
+   only proves that every documented state can be rendered from one panel.
+   --------------------------------------------------------------------------- */
+(function () {
+  var P = document.getElementById('panel');
+  var $ = function (id) { return document.getElementById(id); };
+  var DASH = '\u2014';
+
+  var NOTE = 'Lot final dihitung dari jarak Entry&ndash;SL, tick value, contract ' +
+             'specification, dan estimasi komisi broker.';
+
+  /* knob position of a risk % on the 0.5 - 5.0 slider */
+  function knobPos(pct) {
+    return Math.max(0, Math.min(100, (pct - 0.5) / 4.5 * 100));
+  }
+
+  function st(o) {
+    var s = {
+      cap: 'state: BUY setup valid',
+      dot: '', side: 'BUY', sideCls: 'buy',
+      bal: '10000', balCls: '',
+      risk: '1.0%', riskCls: '', knob: knobPos(1.0),
+      lotMode: 'auto', comm: '7',
+      budget: '$100', budgetCls: 'budget',
+      lot: 'Auto', lotCls: '',
+      note: NOTE, noteCls: '',
+      banner: null,
+      sellOn: false, sellSub: 'no setup',
+      buyOn: false, buySub: 'no setup'
+    };
+    for (var k in o) { if (Object.prototype.hasOwnProperty.call(o, k)) s[k] = o[k]; }
+    return s;
+  }
+
+  var S = {};
+
+  S.buy = st({
+    buyOn: true, buySub: 'Execute BUY setup'
+  });
+
+  S.sell = st({
+    cap: 'state: SELL setup valid',
+    side: 'SELL', sideCls: 'sell',
+    sellOn: true, sellSub: 'Execute SELL setup'
+  });
+
+  S.nosignal = st({
+    cap: 'state: no AMIS signal', side: DASH, sideCls: '',
+    lot: DASH, lotCls: 'empty'
+  });
+
+  S.off = st({
+    cap: 'state: AMIS not found (no buffers, no heartbeat)', dot: 'off',
+    side: DASH, sideCls: '',
+    lot: DASH, lotCls: 'empty',
+    banner: { text: 'AMIS not found &mdash; attach HoekaGataIndicator', blocker: false },
+    sellSub: 'no AMIS', buySub: 'no AMIS'
+  });
+
+  S.stale = st({
+    cap: 'state: stale signal (_C_T != iTime)', dot: 'stale',
+    side: 'STALE', sideCls: 'warn', riskCls: 'warn',
+    lot: DASH, lotCls: 'empty',
+    banner: { text: 'Signal stale &mdash; waiting for AMIS', blocker: false },
+    sellSub: 'stale', buySub: 'stale'
+  });
+
+  S.crossed = st({
+    cap: 'state: entry already crossed (BUY: _C_E &lt;= Ask)', dot: 'stale',
+    riskCls: 'warn',
+    lot: '0.18', lotCls: '',
+    banner: { text: 'Entry crossed &mdash; enable &ldquo;use market&rdquo; to continue',
+              blocker: false },
+    sellSub: 'blocked', buySub: 'blocked'
+  });
+
+  S.minlot = st({
+    cap: 'state: broker minimum volume exceeds the risk budget',
+    lot: '0.10 ! > budget', lotCls: 'warn',
+    banner: { text: 'Min 0.10 risks $145.00 = 145% of budget &mdash; accept overshoot to continue',
+              blocker: false },
+    buyOn: true, buySub: 'Execute BUY setup', sellSub: 'no setup'
+  });
+
+  S.margin = st({
+    cap: 'state: not enough free margin',
+    banner: { text: 'Margin 1 240.00 &gt; free 480.00', blocker: true },
+    sellSub: 'no setup', buySub: 'blocked'
+  });
+
+  S.rejected = st({
+    cap: 'state: last order was rejected by the server',
+    banner: { text: 'Order failed: 10019 (no money)', blocker: true },
+    buyOn: true, buySub: 'Execute BUY setup'
+  });
+
+  S.min = { cap: 'state: minimized (title only, 340 x 36)' };
+
+  function apply(key) {
+    var s = S[key];
+    if (!s) return;
+
+    P.setAttribute('data-state', key === 'min' ? 'min' : 'normal');
+    $('stageCap').innerHTML = 'XAUUSD &middot; M15 &mdash; ' + s.cap;
+    if (key === 'min') return;
+
+    $('dot').className = 'rm-dot ' + (s.dot || '');
+    var tag = $('sideTag');
+    tag.textContent = s.side;
+    tag.className = 'side ' + (s.sideCls || '');
+
+    var bal = $('editBal');
+    bal.textContent = s.bal;
+    bal.className = 'rm-pill' + (s.balCls ? ' ' + s.balCls : '');
+
+    var comm = $('editComm');
+    comm.textContent = s.comm;
+    comm.className = 'rm-pill' + (s.commCls ? ' ' + s.commCls : '');
+
+    var rv = $('vRisk');
+    rv.textContent = s.risk;
+    rv.className = 'v' + (s.riskCls ? ' ' + s.riskCls : '');
+    $('slKnob').style.left = s.knob + '%';
+    $('slFill').style.width = s.knob + '%';
+
+    var seg = $('segLot').children;
+    seg[0].className = 'b' + (s.lotMode === 'auto' ? ' on' : '');
+    seg[1].className = 'b' + (s.lotMode === 'manual' ? ' on' : '');
+
+    var bud = $('vBudget');
+    bud.textContent = s.budget;
+    bud.className = 'rm-big ' + s.budgetCls;
+
+    var lot = $('vLot');
+    lot.textContent = s.lot;
+    lot.className = 'rm-big' + (s.lotCls ? ' ' + s.lotCls : '');
+
+    var note = $('vNote');
+    note.innerHTML = s.note;
+    note.className = 'rm-note' + (s.noteCls ? ' ' + s.noteCls : '');
+
+    var b = $('banner');
+    if (s.banner) {
+      b.className = 'rm-banner' + (s.banner.blocker ? ' blocker' : '');
+      b.innerHTML = '<span class="ico">!</span><span>' + s.banner.text + '</span>';
+    } else {
+      b.className = 'rm-banner hidden';
+    }
+
+    $('btnSell').className = 'rm-btn sell' + (s.sellOn ? '' : ' disabled');
+    $('btnBuy').className = 'rm-btn buy' + (s.buyOn ? '' : ' disabled');
+    $('subSell').innerHTML = s.sellSub;
+    $('subBuy').innerHTML = s.buySub;
+  }
+
+  /* lot sizing toggle is the only interactive control in the mockup */
+  var segLot = $('segLot');
+  if (segLot) {
+    Array.prototype.forEach.call(segLot.children, function (b, i) {
+      b.addEventListener('click', function () {
+        Array.prototype.forEach.call(segLot.children, function (o) { o.className = 'b'; });
+        b.className = 'b on';
+        var auto = (i === 0);
+        var cur = $('vLot');
+        if (cur.textContent !== DASH) cur.textContent = auto ? 'Auto' : '0.18';
+      });
+    });
+  }
+
+  var btns = document.querySelectorAll('.sw');
+  Array.prototype.forEach.call(btns, function (b) {
+    b.addEventListener('click', function () {
+      Array.prototype.forEach.call(btns, function (o) { o.classList.remove('on'); });
+      b.classList.add('on');
+      apply(b.getAttribute('data-state'));
+    });
+  });
+
+  /* paint the default state so the slider knob starts on 1.0%, not at zero */
+  apply('buy');
+
+  /* decorative candles: deterministic so the page looks identical on reload */
+  var host = document.getElementById('candles');
+  var seed = 20261023;
+  function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+  var y = 300, x = 10, html = '';
+  while (x < 752) {
+    y += (rnd() - 0.5) * 26;
+    y = Math.max(70, Math.min(500, y));
+    var bodyH = 8 + rnd() * 26;
+    var wickH = bodyH + 8 + rnd() * 22;
+    var up = rnd() > 0.45;
+    html += '<div class="candle ' + (up ? 'up' : 'dn') + '" style="left:' + x + 'px;top:' +
+            (y - wickH / 2).toFixed(1) + 'px;height:' + wickH.toFixed(1) + 'px">' +
+            '<i style="top:0;height:' + wickH.toFixed(1) + 'px"></i>' +
+            '<b style="top:' + ((wickH - bodyH) / 2).toFixed(1) + 'px;height:' + bodyH.toFixed(1) +
+            'px"></b></div>';
+    x += 12;
+  }
+  host.innerHTML = html;
+})();
+</script>
+</body>
+</html>
