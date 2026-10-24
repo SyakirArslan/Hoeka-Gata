@@ -3,3 +3,10 @@
 
 # Manual backups should stay local; Git history is the source backup.
 Backup/
+
+# Local agent configuration and generated skills. These are per-machine
+# settings, not part of the project. AGENTS.md stays tracked on purpose:
+# it is the canonical instruction file for every agent (see AGENTS.md).
+.agents/
+.clinerules/
+.ai-memory.toml
